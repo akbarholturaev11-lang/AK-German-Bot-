@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 from app.services.ai_service import AIService
 
@@ -438,6 +439,14 @@ RULES:
 - Give score 0-100
 - decided passed = true if score >= 60
 - feedback_text must be in {user_language}, short and clear
+- Explain what is correct
+- If there are mistakes, explain WHY each mistake is wrong
+- Show the correct version or a good example answer
+- Always include the score clearly, for example: "Ball: 72/100"
+- If score is below 60, tell the student to reread the lesson from the menu:
+  "Menyudan 'Darsni qayta o'qish' tugmasini bosib darsni qaytadan o'qishingiz mumkin."
+  Translate this sentence naturally to {user_language}
+- Do not use Markdown or HTML
 - Return ONLY valid JSON, nothing else:
 {{"score": 0, "passed": false, "feedback_text": "..."}}"""
 
@@ -463,11 +472,26 @@ RULES:
         except Exception:
             data = {"score": 60, "passed": True, "feedback_text": raw.strip()}
 
-        score = max(0, min(100, int(data.get("score", 60))))
-        passed = bool(data.get("passed", True))
+        raw_score = data.get("score", 60)
+        try:
+            score = int(float(raw_score))
+        except (TypeError, ValueError):
+            match = re.search(r"\d+", str(raw_score))
+            score = int(match.group(0)) if match else 60
+        score = max(0, min(100, score))
+        passed = score >= 60
         feedback = str(data.get("feedback_text", "")).strip()
 
         if not feedback:
             feedback = f"✅ {score}/100"
+
+        if not passed:
+            retry_note = {
+                "uz": "Menyudan 'Darsni qayta o'qish' tugmasini bosib darsni qaytadan o'qishingiz mumkin.",
+                "ru": "В меню нажмите 'Перечитать урок', чтобы пройти урок заново.",
+                "tj": "Аз меню тугмаи 'Аз нав хондани дарс'-ро пахш карда, метавонед дарсро аз нав хонед.",
+            }.get(user_language, "В меню нажмите 'Перечитать урок', чтобы пройти урок заново.")
+            if retry_note not in feedback:
+                feedback = f"{feedback}\n\n{retry_note}"
 
         return {"score": score, "passed": passed, "feedback_text": feedback}

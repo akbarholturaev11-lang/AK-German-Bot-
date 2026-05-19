@@ -1,12 +1,12 @@
-# Graph Report - ..  (2026-05-16)
+# Graph Report - telegram_chinese_bot_clean  (2026-05-19)
 
 ## Corpus Check
-- 295 files · ~560,949 words
+- 295 files · ~565,079 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2686 nodes · 6592 edges · 68 communities detected
-- Extraction: 55% EXTRACTED · 45% INFERRED · 0% AMBIGUOUS · INFERRED: 2985 edges (avg confidence: 0.73)
+- 2693 nodes · 6626 edges · 68 communities detected
+- Extraction: 55% EXTRACTED · 45% INFERRED · 0% AMBIGUOUS · INFERRED: 3010 edges (avg confidence: 0.73)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -80,14 +80,14 @@
 - [[_COMMUNITY_Community 90|Community 90]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `UserRepository` - 167 edges
+1. `UserRepository` - 170 edges
 2. `t()` - 120 edges
 3. `add()` - 91 edges
 4. `CourseLesson` - 69 edges
 5. `CourseEngineService` - 66 edges
-6. `handle_text_message()` - 57 edges
-7. `CourseAudioRepository` - 52 edges
-8. `CourseTutorService` - 50 edges
+6. `handle_text_message()` - 60 edges
+7. `CourseTutorService` - 55 edges
+8. `CourseAudioRepository` - 52 edges
 9. `AIUsageBudgetService` - 47 edges
 10. `Response` - 47 edges
 
@@ -107,19 +107,19 @@
 
 ### Community 0 - "Community 0"
 Cohesion: 0.02
-Nodes (134): add(), build(), build_from_json(), build_merge(), deduplicate_by_label(), _norm_label(), _normalize_id(), Merge multiple extraction results into one graph.      directed=True produces a (+126 more)
+Nodes (176): Server, admin_stats_handler(), _clear_voice_mode(), command_language_callback_handler(), command_language_keyboard(), command_level_callback_handler(), command_level_keyboard(), _fmt_date() (+168 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.03
-Nodes (130): OnboardingStates, admin_deleteuser_handler(), admin_payment_approve_handler(), admin_payment_reject_handler(), admin_payment_reject_with_reason_handler(), admin_stats_handler(), _clear_voice_mode(), command_language_callback_handler() (+122 more)
+Cohesion: 0.02
+Nodes (253): _body_content(), cache_dir(), cached_files(), check_semantic_cache(), clear_cache(), file_hash(), load_cached(), Return set of file paths that have a valid cache entry (hash still matches). (+245 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.02
-Nodes (209): _check_tree_sitter_version(), _csharp_extra_walk(), extract(), extract_blade(), extract_c(), extract_cpp(), extract_csharp(), extract_dart() (+201 more)
+Nodes (225): _cross_community_surprises(), _cross_file_surprises(), _file_category(), god_nodes(), graph_diff(), _is_concept_node(), _is_file_node(), _node_community_map() (+217 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.03
-Nodes (139): _block_if_course_disabled(), course_audio_dialogue_handler(), course_audio_dialogue_n_handler(), course_audio_vocab_handler(), course_command_handler(), course_continue_handler(), course_go_dialogue(), course_go_exercise() (+131 more)
+Cohesion: 0.02
+Nodes (131): add(), build_graph(), CacheManager, createProcessor(), DataProcessor, Get-Data(), Graph, GraphifyDemo (+123 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.03
@@ -127,75 +127,75 @@ Nodes (101): Exception, Auth, BasicAuth, BearerAuth, DigestAuth, NetRCAuth, Auth
 
 ### Community 5 - "Community 5"
 Cohesion: 0.03
-Nodes (118): Base, Base, DeclarativeBase, AdminAudioStates, AdminPortfolioStates, admin_audio_list_handler(), admin_back_keyboard(), admin_broadcast_handler() (+110 more)
+Nodes (117): find(), _load_graphifyignore(), Read .graphifyignore from root **and ancestor directories**.      Returns a list, collect_files(), extract_python(), Extract classes, functions, and imports from a .py file via tree-sitter AST., _prepare_title_i18n(), next_study_time_inline_keyboard() (+109 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.02
-Nodes (165): _git_root(), _hooks_dir(), install(), _install_hook(), Walk up to find .git directory., Return the git hooks directory, respecting core.hooksPath if set (e.g. Husky)., Install a single git hook, appending if an existing hook is present., Remove graphify section from a git hook using start/end markers. (+157 more)
+Cohesion: 0.04
+Nodes (66): admin_payment_approve_handler(), admin_payment_reject_handler(), admin_payment_reject_with_reason_handler(), _is_night(), payment_screenshot_handler(), _waiting_message(), _admin_discount_choices(), _admin_discount_matrix() (+58 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.03
-Nodes (106): ApiClient, find(), _estimate_tokens(), print_benchmark(), _query_subgraph_tokens(), Token-reduction benchmark - measures how much context graphify saves vs naive fu, Print a human-readable benchmark report., Run BFS from best-matching nodes and return estimated tokens in the subgraph con (+98 more)
+Cohesion: 0.05
+Nodes (76): Base, Base, DeclarativeBase, AdminPortfolioStates, admin_audio_list_handler(), admin_back_keyboard(), admin_broadcast_handler(), admin_broadcast_info() (+68 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.04
-Nodes (47): MyApp.Accounts.User, create(), validate(), Server, BroadcastStates, DiscountStates, FeedbackStates, DB dan file_id topib yuboradi, yo'q bo'lsa foydalanuvchi tilida xabar ko'rsatadi (+39 more)
+Cohesion: 0.03
+Nodes (100): _detect_url_type(), _download_binary(), _fetch_arxiv(), _fetch_html(), _fetch_tweet(), _fetch_webpage(), _html_to_markdown(), ingest() (+92 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.04
-Nodes (103): build_graph(), Graph, _cross_community_surprises(), _cross_file_surprises(), _file_category(), god_nodes(), graph_diff(), _is_concept_node() (+95 more)
+Cohesion: 0.03
+Nodes (38): _background_scheduler(), lifespan(), Run all lesson seed scripts in the background after startup., Run all lesson seed scripts in the background after startup., Run all lesson seed scripts in the background after startup., _seed_lessons(), BaseMiddleware, create_bot() (+30 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.03
-Nodes (102): Export graph as an SVG file using matplotlib + spring layout.      Lightweight a, to_svg(), _detect_url_type(), _download_binary(), _fetch_arxiv(), _fetch_html(), _fetch_tweet(), _fetch_webpage() (+94 more)
+Nodes (96): _git_root(), _hooks_dir(), install(), _install_hook(), Walk up to find .git directory., Return the git hooks directory, respecting core.hooksPath if set (e.g. Husky)., Install a single git hook, appending if an existing hook is present., Remove graphify section from a git hook using start/end markers. (+88 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.04
-Nodes (36): _background_scheduler(), lifespan(), Run all lesson seed scripts in the background after startup., Run all lesson seed scripts in the background after startup., Run all lesson seed scripts in the background after startup., _seed_lessons(), BaseMiddleware, create_bot() (+28 more)
+Cohesion: 0.05
+Nodes (49): AdminAudioStates, admin_audio_entry(), admin_audio_from_panel(), _after_upload_keyboard(), ask_for_audio_file(), audio_stats(), _audio_types_for_lesson(), _audio_types_keyboard() (+41 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.04
-Nodes (67): handle_delete(), handle_enrich(), handle_get(), handle_list(), handle_search(), handle_upload(), API module - exposes the document pipeline over HTTP. Thin layer over parser, va, Accept a list of file paths, run the full pipeline on each,     and return a sum (+59 more)
+Nodes (30): MyApp.Accounts.User, create(), validate(), BroadcastStates, DiscountStates, FeedbackStates, OnboardingStates, cmd_start() (+22 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.05
-Nodes (70): Enum, classify_file(), convert_office_file(), count_words(), detect(), detect_incremental(), docx_to_markdown(), extract_pdf_text() (+62 more)
+Cohesion: 0.04
+Nodes (67): handle_delete(), handle_enrich(), handle_get(), handle_list(), handle_search(), handle_upload(), API module - exposes the document pipeline over HTTP. Thin layer over parser, va, Accept a list of file paths, run the full pipeline on each,     and return a sum (+59 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.04
-Nodes (31): area(), CacheManager, Circle, Color, Config, createProcessor(), DataProcessor, describe() (+23 more)
-
-### Community 15 - "Community 15"
 Cohesion: 0.09
 Nodes (56): admin_discount_panel(), _admin_ids(), _delete_admin_input(), discount_cancel(), discount_confirm(), discount_custom_duration(), discount_disable(), discount_duration() (+48 more)
 
+### Community 15 - "Community 15"
+Cohesion: 0.04
+Nodes (20): ApiClient, area(), Circle, Color, Config, describe(), Geometry, HttpClient (+12 more)
+
 ### Community 16 - "Community 16"
 Cohesion: 0.07
-Nodes (43): _body_content(), cache_dir(), cached_files(), check_semantic_cache(), clear_cache(), file_hash(), load_cached(), Return set of file paths that have a valid cache entry (hash still matches). (+35 more)
+Nodes (51): Return the first path component - used to detect cross-repo edges., Score how surprising a cross-file edge is. Returns (score, reasons)., _surprise_score(), _top_level_dir(), _community_article(), _cross_community_links(), _god_node_article(), _index_md() (+43 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.07
-Nodes (43): collect_files(), extract_python(), Extract classes, functions, and imports from a .py file via tree-sitter AST., After merging multiple files, no internal edges should be dangling., Call-graph pass must produce INFERRED calls edges., AST-resolved call edges are deterministic and should be EXTRACTED/1.0., Same input always produces same output., run_analysis() calls compute_score() - must appear as a calls edge. (+35 more)
+Nodes (51): Enum, classify_file(), detect(), FileType, _is_noise_dir(), _is_sensitive(), _looks_like_paper(), Return True if this directory name looks like a venv, cache, or dep dir. (+43 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.09
-Nodes (39): Analyzer, compute_score(), normalize(), Fixture: functions and methods that call each other - for call-graph extraction, run_analysis(), _strip_diacritics(), _bfs(), _communities_from_graph() (+31 more)
+Nodes (39): Analyzer, compute_score(), normalize(), Fixture: functions and methods that call each other - for call-graph extraction, run_analysis(), _bfs(), _communities_from_graph(), _dfs() (+31 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.06
 Nodes (20): do_run_migrations(), ensure_version_column_width(), run_async_migrations(), run_migrations_online(), text(), delete_user(), main(), clean() (+12 more)
 
 ### Community 20 - "Community 20"
+Cohesion: 0.09
+Nodes (31): claude_install(), claude_uninstall(), Write the graphify section to the local CLAUDE.md., Remove graphify PreToolUse hook from .claude/settings.json., Remove the graphify section from the local CLAUDE.md., _uninstall_claude_hook(), Tests for graphify claude install / uninstall commands., claude_install also writes .claude/settings.json with PreToolUse hook. (+23 more)
+
+### Community 21 - "Community 21"
 Cohesion: 0.15
 Nodes (23): bc_activity_filter(), bc_cancel(), bc_confirm(), bc_discount_filter(), bc_enter_text(), bc_lang_filter(), bc_level_filter(), bc_mode_filter() (+15 more)
 
-### Community 21 - "Community 21"
-Cohesion: 0.17
-Nodes (25): _community_article(), _cross_community_links(), _god_node_article(), _index_md(), Return (community_label, edge_count) pairs for cross-community connections, sort, Generate a Wikipedia-style wiki from the graph.      Writes:       - index.md, _safe_filename(), to_wiki() (+17 more)
-
 ### Community 22 - "Community 22"
-Cohesion: 0.13
-Nodes (24): _cross_community_surprises(), _cross_file_surprises(), _file_category(), god_nodes(), graph_diff(), _is_concept_node(), _is_file_node(), _node_community_map() (+16 more)
+Cohesion: 0.19
+Nodes (22): _estimate_tokens(), print_benchmark(), _query_subgraph_tokens(), Token-reduction benchmark - measures how much context graphify saves vs naive fu, Print a human-readable benchmark report., Run BFS from best-matching nodes and return estimated tokens in the subgraph con, Measure token reduction: corpus tokens vs graphify query tokens.      Args:, run_benchmark() (+14 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.2
@@ -378,7 +378,7 @@ Cohesion: 1.0
 Nodes (1): Keyingi o'qish vaqtini tanlash — inline tugmalar (ReplyKeyboard o'rniga).
 
 ## Knowledge Gaps
-- **415 isolated node(s):** `AI tutor javobidan keyin: 'Tushundim' → keyingi bo'limga o'tish.`, `Shown while waiting for 3 referrals — only back button.`, `Shown when 3/3 referrals reached — plan buttons + back.`, `lesson.title oddiy string yoki JSON bo'lishi mumkin — xitoycha qismini qaytaradi`, `V2 darslar uchun universal 'Davom etamiz' tugmasi (audiosiz).` (+410 more)
+- **417 isolated node(s):** `AI tutor javobidan keyin: 'Tushundim' → keyingi bo'limga o'tish.`, `Shown while waiting for 3 referrals — only back button.`, `Shown when 3/3 referrals reached — plan buttons + back.`, `lesson.title oddiy string yoki JSON bo'lishi mumkin — xitoycha qismini qaytaradi`, `V2 darslar uchun universal 'Davom etamiz' tugmasi (audiosiz).` (+412 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 30`** (5 nodes): `ColorResolver`, `.accent()`, `.primary()`, `DefaultPalette`, `sample_php_static_prop.php`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -460,14 +460,14 @@ Nodes (1): Keyingi o'qish vaqtini tanlash — inline tugmalar (ReplyKeyboard o'r
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `UserRepository` connect `Community 1` to `Community 3`, `Community 5`, `Community 8`, `Community 11`, `Community 15`, `Community 20`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
-- **Why does `add()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 9`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 18`, `Community 22`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
-- **Why does `t()` connect `Community 1` to `Community 11`, `Community 8`, `Community 3`, `Community 15`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
-- **Are the 141 inferred relationships involving `UserRepository` (e.g. with `User` and `Message`) actually correct?**
-  _`UserRepository` has 141 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `UserRepository` connect `Community 0` to `Community 6`, `Community 7`, `Community 9`, `Community 11`, `Community 12`, `Community 14`, `Community 21`?**
+  _High betweenness centrality (0.074) - this node is a cross-community bridge._
+- **Why does `t()` connect `Community 0` to `Community 5`, `Community 6`, `Community 9`, `Community 12`, `Community 14`?**
+  _High betweenness centrality (0.060) - this node is a cross-community bridge._
+- **Why does `add()` connect `Community 3` to `Community 0`, `Community 1`, `Community 2`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 11`, `Community 12`, `Community 13`, `Community 15`, `Community 17`, `Community 18`, `Community 22`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
+- **Are the 144 inferred relationships involving `UserRepository` (e.g. with `User` and `Message`) actually correct?**
+  _`UserRepository` has 144 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 115 inferred relationships involving `str` (e.g. with `_ensure_bootstrap_columns()` and `discount_title_for_lang()`) actually correct?**
   _`str` has 115 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 119 inferred relationships involving `t()` (e.g. with `course_review_offer_keyboard()` and `course_satisfaction_keyboard()`) actually correct?**

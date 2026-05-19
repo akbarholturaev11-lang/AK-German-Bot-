@@ -49,6 +49,7 @@ from app.services.access_service import AccessService
 from app.services.ai_service import AIService
 from app.services.ai_usage_budget_service import AIUsageBudgetService
 from app.services.course_engine_service import CourseEngineService
+from app.services.course_tutor_service import CourseTutorService
 from app.services.course_progress_summary_service import CourseProgressSummaryService
 from app.services.image_input_service import ImageInputService
 from app.services.image_qa_service import ImageQAService
@@ -62,6 +63,16 @@ MAX_VOICE_DURATION_SECONDS = 60
 VOICE_MODE_NONE = "none"
 VOICE_MODE_QA = "qa"
 VOICE_MODE_TRANSLATOR = "translator"
+
+_COURSE_TUTOR_STEPS = {
+    "intro",
+    "vocab",
+    "vocabulary",
+    "vocab_1",
+    "vocab_2",
+    "dialogue",
+    "grammar",
+}
 
 _ADMIN_FSM_STATES = {
     AdminAudioStates.waiting_for_audio.state,
@@ -145,6 +156,11 @@ def _is_i18n_access_key(value: str) -> bool:
     return value.startswith("access_") or value.startswith("ai_budget_")
 
 
+def _is_course_tutor_step(step: str) -> bool:
+    step = (step or "").strip()
+    return step in _COURSE_TUTOR_STEPS or step.startswith("dialogue_")
+
+
 async def _ensure_ai_available(access_service: AccessService, telegram_id: int, respond, lang: str) -> bool:
     can_use, message_key = await access_service.can_use_text_ai(telegram_id)
     if can_use:
@@ -167,6 +183,57 @@ async def _send_budget_notice(respond, record, lang: str) -> None:
     message_key = getattr(record, "message_key", "")
     if message_key:
         await respond(t(message_key, lang), parse_mode="HTML")
+
+
+async def _answer_course_tutor_question(
+    *,
+    message: Message,
+    session,
+    access_service: AccessService,
+    user,
+    progress,
+    lesson,
+    text: str,
+    lang: str,
+) -> bool:
+    if not _is_course_tutor_step(getattr(progress, "current_step", "")):
+        return False
+
+    text = (text or "").strip()
+    if not text:
+        return False
+
+    if not await _ensure_ai_available(access_service, message.from_user.id, message.answer, lang):
+        return True
+
+    effect = ResponseEffect(message)
+    await effect.start()
+    try:
+        tutor = CourseTutorService()
+        reply = await tutor.generate_step_response(
+            user_language=user.language,
+            user_level=user.level,
+            lesson=lesson,
+            step=progress.current_step,
+            user_message=text,
+        )
+        budget_record = await _record_ai_usage(
+            session=session,
+            telegram_id=message.from_user.id,
+            ai_result=tutor.last_ai_result,
+            source="course_tutor",
+        )
+        await session.commit()
+    finally:
+        await effect.stop()
+
+    await message.answer(
+        reply,
+        reply_markup=_keyboard_for_step(lang, progress.current_step, lesson),
+        parse_mode="HTML",
+    )
+    await _send_budget_notice(message.answer, budget_record, lang)
+    return True
 
 
 def _voice_mode_choice_keyboard(lang: str) -> InlineKeyboardMarkup:
@@ -891,19 +958,41 @@ async def handle_text_message(message: Message, state: FSMContext, session):
             return
 
         if progress.waiting_for == "homework_submission":
-            result = await engine.mark_homework_submitted(
-                message.from_user.id,
-                message.text or "",
-            )
+            if not msg_text:
+                await message.answer(t("course_homework_empty", user_lang))
+                return
+
+            if not await _ensure_ai_available(access_service, message.from_user.id, message.answer, user_lang):
+                return
+
+            effect = ResponseEffect(message)
+            await effect.start()
+            try:
+                result = await engine.mark_homework_submitted(
+                    message.from_user.id,
+                    message.text or "",
+                )
+            finally:
+                await effect.stop()
 
             if isinstance(result, dict) and result.get("error_key"):
                 await message.answer(t(result["error_key"], user_lang))
                 return
 
+            budget_record = await _record_ai_usage(
+                session=session,
+                telegram_id=message.from_user.id,
+                ai_result=result.get("ai_result") if isinstance(result, dict) else None,
+                source="course_homework",
+            )
+            await session.commit()
+
             if isinstance(result, dict) and result.get("feedback_text"):
-                await message.answer(result["feedback_text"])
+                await message.answer(escape(result["feedback_text"]), parse_mode="HTML")
             else:
                 await message.answer(t("course_homework_received", user_lang))
+
+            await _send_budget_notice(message.answer, budget_record, user_lang)
 
             if isinstance(result, dict) and result.get("ask_next_study_time"):
                 await engine.set_next_study_at(message.from_user.id, None)
@@ -941,6 +1030,18 @@ async def handle_text_message(message: Message, state: FSMContext, session):
                         lesson=rl,
                         lang=user_lang,
                     )
+            return
+
+        if await _answer_course_tutor_question(
+            message=message,
+            session=session,
+            access_service=access_service,
+            user=current_user,
+            progress=progress,
+            lesson=lesson,
+            text=msg_text,
+            lang=user_lang,
+        ):
             return
 
         await message.answer(

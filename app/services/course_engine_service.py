@@ -6,6 +6,7 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.course_lesson_repo import CourseLessonRepository
 from app.repositories.course_progress_repo import CourseProgressRepository
 from app.repositories.course_attempt_repo import CourseAttemptRepository
+from app.services.course_tutor_service import CourseTutorService
 
 
 # ─── V1: eski format (HSK1 va grammar_notes si yo'q darslar) ───────────────
@@ -412,34 +413,51 @@ class CourseEngineService:
             return {"error_key": "course_homework_empty"}
 
         user_lang = user.language if getattr(user, "language", None) else "ru"
-        feedback_map = {
-            "uz": "✅ Uyga vazifa qabul qilindi. Javobingiz saqlandi.",
-            "ru": "✅ Домашнее задание принято. Ваш ответ сохранён.",
-            "tj": "✅ Вазифаи хонагӣ қабул шуд. Ҷавоби шумо сабт шуд.",
-        }
-        feedback_text = feedback_map.get(user_lang, feedback_map["ru"])
+        user_level = user.level if getattr(user, "level", None) else "hsk1"
+
+        tutor = CourseTutorService()
+        evaluation = await tutor.evaluate_homework(
+            user_language=user_lang,
+            user_level=user_level,
+            lesson=lesson,
+            submission_text=submission_text,
+        )
+
+        score = evaluation.get("score", 0)
+        passed = evaluation.get("passed", False)
+        feedback_text = evaluation.get("feedback_text", "")
 
         await self.attempt_repo.create(
             user_id=user.id,
             lesson_id=lesson.id,
             attempt_type="homework",
             step_name="homework",
-            score=100,
-            passed=True,
+            score=score,
+            passed=passed,
             answers_json=json.dumps({"submission_text": submission_text}, ensure_ascii=False),
             ai_feedback=feedback_text,
         )
 
-        await self.progress_repo.set_homework_status(progress, "completed")
-        await self.progress_repo.set_waiting_for(progress, "next_study_time")
+        if passed:
+            await self.progress_repo.set_homework_status(progress, "completed")
+            await self.progress_repo.set_waiting_for(progress, "next_study_time")
+        else:
+            await self.progress_repo.set_homework_status(progress, "assigned")
+            await self.progress_repo.set_current_lesson_and_step(
+                progress=progress,
+                lesson_id=lesson.id,
+                step="homework",
+                waiting_for="homework_submission",
+            )
         await self.session.commit()
 
         return {
             "error_key": None,
             "feedback_text": feedback_text,
-            "ask_next_study_time": True,
-            "score": 100,
-            "passed": True,
+            "ask_next_study_time": passed,
+            "score": score,
+            "passed": passed,
+            "ai_result": tutor.last_ai_result,
             "budget_cooldown_started": False,
             "budget_message_key": "",
         }
