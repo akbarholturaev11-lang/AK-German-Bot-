@@ -47,6 +47,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📣 Majburiy kanal obunasi", callback_data="adm:channels")],
         [InlineKeyboardButton(text="🗑 Foydalanuvchini o'chirish", callback_data="adm:deleteuser_info")],
         [InlineKeyboardButton(text="📢 Broadcast xabar", callback_data="adm:broadcast_info")],
+        [InlineKeyboardButton(text="📣 Reklama kampaniyasi", callback_data="adm:ads_panel")],
         [InlineKeyboardButton(text="🎁 Chegirma boshqaruv", callback_data="adm:discount_panel")],
         [InlineKeyboardButton(text="✅ Obuna berish", callback_data="adm:giveaccess_info")],
         [InlineKeyboardButton(text="🎵 Audio boshqaruv", callback_data="adm:audio_panel")],

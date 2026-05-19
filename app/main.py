@@ -16,6 +16,7 @@ from app.services.daily_reset_service import DailyResetService
 from app.services.expiry_reminder_service import ExpiryReminderService
 from app.services.course_reminder_service import CourseReminderService
 from app.services.bot_feedback_service import BotFeedbackService
+from app.services.ad_campaign_service import AdCampaignService
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,8 @@ async def _background_scheduler(bot: Bot) -> None:
                 await CourseReminderService(session).send_weekly_progress_reports(bot)
             async with async_session_maker() as session:
                 await BotFeedbackService(session).send_due_price_discount_offers(bot)
+            async with async_session_maker() as session:
+                await AdCampaignService(session).send_due_ads(bot)
             now = datetime.now(timezone.utc)
             if (
                 _last_feedback_check_at is None

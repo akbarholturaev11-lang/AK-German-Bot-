@@ -272,6 +272,20 @@ class UserRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def get_ad_target_users(
+        self,
+        *,
+        languages: Optional[list[str]] = None,
+        include_active_subscribers: bool = False,
+    ) -> list[User]:
+        query = select(User).where(User.status != "blocked")
+        if languages:
+            query = query.where(User.language.in_(languages))
+        if not include_active_subscribers:
+            query = query.where(User.status != "active")
+        result = await self.session.execute(query.order_by(User.id.asc()))
+        return list(result.scalars().all())
+
     async def list_active_users_expiring_on(
         self,
         target_date: date,
