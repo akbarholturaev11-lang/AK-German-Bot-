@@ -25,9 +25,26 @@ MUHIM QOIDA (ASOSIY VAZIFA):
 - Sen HECH QACHON foydalanuvchiga mashq, savol yoki test bermaysan
 - Sening vazifang: foydalanuvchiga hozirgi mavzuni tushuntirish
 - Agar foydalanuvchi savol bersa — tushuntir, misollar keltir
-- Har bir javob oxirida yana biror narsani tushuntirishni TAKLIF qil
-  (masalan: "Yana so'zlar haqida misollar xohlaysizmi?" yoki "Grammatika qoidasi haqida ko'proq aytaymi?")
+- Javob oxirida qo'shimcha savol yoki taklif yozma
 - Aslo: "Endi mashq qilamiz", "Quyidagi savolga javob bering", "Sinab ko'ring" dema
+"""
+
+_VOCAB_BLOCK_RULE = """
+FORMAT QOIDASI (JUDA MUHIM):
+- Har bir so'zni FAQAT shu ko'rinishda yoz:
+
+1. <b>汉字</b>
+<code>pīnyīn</code>
+Tarjima: qisqa tarjima
+Misollar:
+- 汉字 bilan oddiy gap — tarjimasi
+- 汉字 bilan yana bitta oddiy gap — tarjimasi
+
+- Har bir so'z alohida blok bo'lsin
+- Iyeroglif, pinyin, tarjima va misollarni bitta qatorda aralashtirma
+- Dars lug'atidan tashqariga chiqma
+- Foydalanuvchi "nima", "tushunmadim", "qanaqa" kabi noaniq yozsa ham shu formatda qayta tushuntir
+- Javob oxirida "Yana misollar xohlaysizmi?" kabi savol yozma
 """
 
 
@@ -96,10 +113,9 @@ SO'ZLAR MA'LUMOTI:
 QOIDALAR:
 - Faqat {user_language} tilida javob ber, {user_level} darajasi
 - Xitoy belgilari uchun <b>...</b>, pinyin uchun <code>...</code>
-- Har bir so'z: <b>汉字</b> [<code>pīnyīn</code>] — ma'nosi — qisqa misol jumla
 - O'xshash so'zlar bo'lsa (masalan 我/你, 大/小), ularni yonma-yon solishtir
-- So'z boshiga 2 qatordan oshmasin, jami 15 qatordan kam
-- Foydalanuvchi savollarini tushuntir, keyin TAKLIF qil (masalan: "Yana qaysi so'z haqida ko'proq bilmoqchisiz?")
+- Maksimal 8 ta so'zni tushuntir
+{_VOCAB_BLOCK_RULE}
 {_EXPLANATION_RULE}"""
 
         return prompt, data
@@ -304,8 +320,8 @@ SO'ZLAR (1–8):
 QOIDALAR:
 - Faqat {user_language} tilida javob ber, {user_level} darajasi
 - Xitoy belgilari uchun <b>...</b>, pinyin uchun <code>...</code>
-- Har bir so'z: <b>汉字</b> [<code>pīnyīn</code>] — ma'nosi — qisqa misol
-- Jami 15 qatordan oshmasin
+- Maksimal 8 ta so'zni tushuntir
+{_VOCAB_BLOCK_RULE}
 {_EXPLANATION_RULE}"""
         return prompt, data
 
@@ -323,8 +339,8 @@ SO'ZLAR (9+):
 QOIDALAR:
 - Faqat {user_language} tilida javob ber, {user_level} darajasi
 - Xitoy belgilari uchun <b>...</b>, pinyin uchun <code>...</code>
-- Har bir so'z: <b>汉字</b> [<code>pīnyīn</code>] — ma'nosi — qisqa misol
-- Jami 15 qatordan oshmasin
+- Maksimal 8 ta so'zni tushuntir
+{_VOCAB_BLOCK_RULE}
 {_EXPLANATION_RULE}"""
         return prompt, data
 
