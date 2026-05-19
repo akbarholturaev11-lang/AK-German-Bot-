@@ -525,6 +525,12 @@ COURSE_I18N = {
         "course_lesson_completed_after_homework": "✅ Дарс анҷом ёфт. Вақте тайёр шудед, ба дарси навбатӣ мегузарем.",
         "course_homework_received": "✅ Вазифаи хонагӣ қабул шуд.",
         "course_homework_empty": "Лутфан, ҷавоби вазифаи хонагиро нависед.",
+        "course_homework_auto_next": "✅ Вазифаи хонагӣ қабул шуд. Ба дарси навбатӣ мегузарем.",
+        "course_homework_retry_recommendation": (
+            "<blockquote>Тавсия: хол аз 60 паст шуд. Беҳтараш дарсро як бор аз нав хонед. "
+            "Агар хоҳед, метавонед ба дарси навбатӣ ҳам гузаред.</blockquote>"
+        ),
+        "course_homework_choose_next_action": "Интихоб кунед: дарсро аз нав мехонед ё ба дарси навбатӣ мегузаред.",
         "course_next_study_time_optional": "Агар хоҳед, вақти дарси навбатиро интихоб кунед. Агар не, метавонед онро гузаронед.",
         "course_next_study_time_skipped": "Хуб, бе интихоби вақт идома медиҳем.",
         "course_complete_homework_first": "Аввал вазифаи хонагиро фиристед.",
@@ -677,6 +683,12 @@ COURSE_I18N = {
         "course_lesson_completed_after_homework": "✅ Урок завершён. Когда будете готовы, перейдём к следующему уроку.",
         "course_homework_received": "✅ Домашнее задание получено.",
         "course_homework_empty": "Пожалуйста, напишите ответ на домашнее задание.",
+        "course_homework_auto_next": "✅ Домашнее задание принято. Переходим к следующему уроку.",
+        "course_homework_retry_recommendation": (
+            "<blockquote>Рекомендация: балл ниже 60. Лучше один раз перечитать урок. "
+            "Если хотите, можете всё равно перейти к следующему уроку.</blockquote>"
+        ),
+        "course_homework_choose_next_action": "Выберите: перечитать урок или перейти к следующему уроку.",
         "course_next_study_time_optional": "Если хотите, выберите время следующего урока. Если нет — можете пропустить.",
         "course_next_study_time_skipped": "Хорошо, продолжим без выбора времени.",
         "course_complete_homework_first": "Сначала отправьте домашнее задание.",
@@ -844,6 +856,12 @@ COURSE_I18N = {
         "course_lesson_completed_after_homework": "✅ Dars tugadi. Tayyor bo‘lsangiz, keyingi darsga o‘tamiz.",
         "course_homework_received": "✅ Uyga vazifa qabul qilindi.",
         "course_homework_empty": "Iltimos, uyga vazifa javobini yozing.",
+        "course_homework_auto_next": "✅ Uyga vazifa qabul qilindi. Keyingi darsga o‘tamiz.",
+        "course_homework_retry_recommendation": (
+            "<blockquote>Tavsiya: ball 60 dan past. Darsni bir marta qayta o‘qib chiqqaningiz yaxshi. "
+            "Xohlasangiz, baribir keyingi darsga o‘tishingiz mumkin.</blockquote>"
+        ),
+        "course_homework_choose_next_action": "Tanlang: darsni qayta o‘qiysiz yoki keyingi darsga o‘tasiz.",
         "course_next_study_time_optional": "Xohlasangiz, keyingi dars vaqtini tanlang. Xohlamasangiz, o‘tkazib yuborishingiz mumkin.",
         "course_next_study_time_skipped": "Mayli, vaqt tanlamasdan davom etamiz.",
         "course_complete_homework_first": "Avval uyga vazifani yuboring.",

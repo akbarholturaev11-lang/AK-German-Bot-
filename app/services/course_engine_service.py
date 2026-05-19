@@ -447,7 +447,7 @@ class CourseEngineService:
                 progress=progress,
                 lesson_id=lesson.id,
                 step="homework",
-                waiting_for="homework_submission",
+                waiting_for="homework_decision",
             )
         await self.session.commit()
 

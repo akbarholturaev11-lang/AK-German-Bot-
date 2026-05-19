@@ -34,6 +34,7 @@ from app.bot.keyboards.course import (
     course_reminder_timezone_keyboard,
     reminder_time_keyboard,
     hsk4_part_selection_keyboard,
+    homework_retry_keyboard,
 )
 from app.bot.keyboards.course import course_intro_keyboard
 from app.bot.keyboards.checkout import checkout_keyboard
@@ -132,6 +133,14 @@ def _format_static_exercise_result(result: dict, lang: str) -> str:
         for index, answer in enumerate(expected, 1):
             lines.append(f"{index}. {answer}")
     return "\n".join(lines)
+
+
+def _format_homework_evaluation_result(result: dict, lang: str) -> str:
+    feedback_text = str(result.get("feedback_text") or t("course_homework_received", lang)).strip()
+    text = escape(feedback_text)
+    if not result.get("passed"):
+        text = f"{text}\n\n{t('course_homework_retry_recommendation', lang)}"
+    return text
 
 
 class _TextMessageProxy:
@@ -987,30 +996,41 @@ async def handle_text_message(message: Message, state: FSMContext, session):
             )
             await session.commit()
 
-            if isinstance(result, dict) and result.get("feedback_text"):
-                await message.answer(escape(result["feedback_text"]), parse_mode="HTML")
+            if isinstance(result, dict):
+                await message.answer(
+                    _format_homework_evaluation_result(result, user_lang),
+                    reply_markup=None if result.get("passed") else homework_retry_keyboard(user_lang),
+                    parse_mode="HTML",
+                )
             else:
                 await message.answer(t("course_homework_received", user_lang))
 
             await _send_budget_notice(message.answer, budget_record, user_lang)
 
-            if isinstance(result, dict) and result.get("ask_next_study_time"):
-                await engine.set_next_study_at(message.from_user.id, None)
-                _, rp, rl, re_err = await engine.get_current_lesson(message.from_user.id)
-                if not re_err:
-                    if rp.waiting_for == "review_choice":
-                        await message.answer(
-                            t("course_review_choice", user_lang),
-                            reply_markup=review_choice_keyboard(user_lang),
-                        )
-                    else:
-                        await send_course_completion_prompt(
-                            respond=message.answer,
-                            engine=engine,
-                            lesson=rl,
-                            lang=user_lang,
-                        )
+            if isinstance(result, dict) and result.get("passed"):
+                _, _, next_lesson, next_error = await engine.activate_next_lesson(message.from_user.id)
+                if next_error == "course_no_next_lesson":
+                    await message.answer(t("course_completed_title", user_lang))
+                    return
+                if next_error:
+                    await message.answer(t(next_error, user_lang))
+                    return
 
+                await message.answer(t("course_homework_auto_next", user_lang))
+                await message.answer(
+                    format_intro(next_lesson, user_lang),
+                    reply_markup=course_intro_keyboard(user_lang),
+                    parse_mode="HTML",
+                )
+
+            return
+
+        if progress.waiting_for == "homework_decision":
+            await message.answer(
+                t("course_homework_choose_next_action", user_lang),
+                reply_markup=homework_retry_keyboard(user_lang),
+                parse_mode="HTML",
+            )
             return
 
         if progress.waiting_for == "next_study_time":

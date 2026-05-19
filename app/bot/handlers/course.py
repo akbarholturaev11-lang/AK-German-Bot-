@@ -865,6 +865,44 @@ async def course_show_homework_handler(callback: CallbackQuery, session):
     await callback.message.answer(homework_text)
 
 
+@router.callback_query(F.data == "course:homework_reread")
+async def course_homework_reread_handler(callback: CallbackQuery, session):
+    if await _block_if_course_disabled(callback, session):
+        return
+
+    user_repo = UserRepository(session)
+    engine = CourseEngineService(session)
+
+    user = await user_repo.get_by_telegram_id(callback.from_user.id)
+    if not user:
+        await callback.answer()
+        await callback.message.answer(t("access_start_first", "ru"))
+        return
+
+    lang = user.language if user.language else "ru"
+    user, progress, lesson, error_key = await engine.get_current_lesson(callback.from_user.id)
+    if error_key:
+        await callback.answer()
+        await callback.message.answer(t(error_key, lang))
+        return
+
+    await engine.progress_repo.set_current_lesson_and_step(
+        progress=progress,
+        lesson_id=lesson.id,
+        step="intro",
+        waiting_for="none",
+    )
+    await session.commit()
+
+    await callback.answer()
+    await callback.message.answer(t("course_reread_start_msg", lang))
+    await callback.message.answer(
+        format_intro(lesson, lang),
+        reply_markup=course_intro_keyboard(lang),
+        parse_mode="HTML",
+    )
+
+
 @router.callback_query(F.data == "course:start_next_lesson")
 async def course_start_next_lesson_handler(callback: CallbackQuery, session):
     if await _block_if_course_disabled(callback, session):
@@ -888,9 +926,16 @@ async def course_start_next_lesson_handler(callback: CallbackQuery, session):
         return
 
     if progress.homework_status != "completed":
-        await callback.answer()
-        await callback.message.answer(t("course_complete_homework_first", lang))
-        return
+        can_skip_after_low_score = (
+            getattr(progress, "current_step", None) == "homework"
+            and getattr(progress, "waiting_for", None) == "homework_decision"
+        )
+        if can_skip_after_low_score:
+            await engine.progress_repo.set_homework_status(progress, "completed")
+        else:
+            await callback.answer()
+            await callback.message.answer(t("course_complete_homework_first", lang))
+            return
 
     user, progress, lesson, next_lesson, error_key = await engine.complete_lesson_and_unlock_next(callback.from_user.id)
     if error_key:

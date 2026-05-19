@@ -117,6 +117,25 @@ def course_homework_keyboard(lang: str) -> InlineKeyboardMarkup:
     ]])
 
 
+def homework_retry_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("course_reread_button", lang),
+                    callback_data="course:homework_reread",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("course_start_next_lesson", lang),
+                    callback_data="course:start_next_lesson",
+                ),
+            ],
+        ]
+    )
+
+
 def course_next_step_keyboard(lang: str) -> InlineKeyboardMarkup:
     """V2 darslar uchun universal 'Davom etamiz' tugmasi (audiosiz)."""
     labels = {
