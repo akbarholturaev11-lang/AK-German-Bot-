@@ -65,3 +65,7 @@ class RequiredChannelRepository:
     async def set_active(self, channel: RequiredChannel, is_active: bool) -> None:
         channel.is_active = is_active
         await self.session.flush()
+
+    async def delete(self, channel: RequiredChannel) -> None:
+        await self.session.delete(channel)
+        await self.session.flush()

@@ -257,7 +257,11 @@ def channel_panel_keyboard(enabled: bool, channels) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=f"{label} #{channel.id} {channel.title[:28]}",
                 callback_data=f"adm:channel_toggle:{channel.id}",
-            )
+            ),
+            InlineKeyboardButton(
+                text="🗑",
+                callback_data=f"adm:channel_delete:{channel.id}",
+            ),
         ])
     rows.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="adm:menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -864,6 +868,22 @@ async def admin_channel_toggle_callback(callback: CallbackQuery, session):
     await service.set_channel_active(channel_id, not channel.is_active)
     await session.commit()
     await callback.answer("Saqlandi", show_alert=True)
+    text, keyboard = await _channel_panel_text(session)
+    await _edit_callback_message(callback, text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("adm:channel_delete:"))
+async def admin_channel_delete_callback(callback: CallbackQuery, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    channel_id = int(callback.data.split(":")[2])
+    deleted = await RequiredChannelService(session).delete_channel(channel_id)
+    if not deleted:
+        await callback.answer("Kanal topilmadi", show_alert=True)
+        return
+    await session.commit()
+    await callback.answer("Kanal o'chirildi", show_alert=True)
     text, keyboard = await _channel_panel_text(session)
     await _edit_callback_message(callback, text, reply_markup=keyboard, parse_mode="HTML")
 
