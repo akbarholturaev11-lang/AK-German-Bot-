@@ -126,6 +126,7 @@ def broadcast_panel_keyboard(
             [section_btn("payment", "💳 To'lov"), section_btn("discount", "🎁 Chegirma")],
             [section_btn("activity", "⚡ Aktivlik")],
             [InlineKeyboardButton(text="✏️ Xabar tayyorlash", callback_data="bc:enter_text")],
+            [InlineKeyboardButton(text="🎯 Bitta userga xabar", callback_data="bc:target_user")],
             [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="bc:cancel")],
         ])
 

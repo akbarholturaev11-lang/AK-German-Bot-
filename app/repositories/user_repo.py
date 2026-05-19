@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
@@ -18,6 +18,42 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_by_identifier(self, identifier: str) -> Optional[User]:
+        value = (identifier or "").strip()
+        if not value:
+            return None
+        if value.startswith("@"):
+            value = value[1:]
+        if value.isdigit():
+            return await self.get_by_telegram_id(int(value))
+
+        result = await self.session.execute(
+            select(User).where(func.lower(User.username) == value.lower())
+        )
+        return result.scalar_one_or_none()
+
+    async def search_by_identifier(self, identifier: str, limit: int = 10) -> list[User]:
+        value = (identifier or "").strip()
+        if not value:
+            return []
+        if value.startswith("@"):
+            value = value[1:]
+        if value.isdigit():
+            user = await self.get_by_telegram_id(int(value))
+            return [user] if user else []
+
+        pattern = f"%{value.lower()}%"
+        result = await self.session.execute(
+            select(User)
+            .where(
+                (func.lower(User.username).like(pattern))
+                | (func.lower(User.full_name).like(pattern))
+            )
+            .order_by(User.last_active_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def get_by_referral_code(self, referral_code: str) -> Optional[User]:
         result = await self.session.execute(
             select(User).where(User.referral_code == referral_code)
@@ -28,6 +64,7 @@ class UserRepository:
         self,
         telegram_id: int,
         full_name: Optional[str] = None,
+        username: Optional[str] = None,
         language: str = "tj",
         level: str = "beginner",
     ) -> User:
@@ -36,6 +73,7 @@ class UserRepository:
         user = User(
             telegram_id=telegram_id,
             full_name=full_name,
+            username=username,
             language=language,
             level=level,
             learning_mode="qa",

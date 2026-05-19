@@ -3,6 +3,7 @@ from typing import Optional
 from app.repositories.payment_repo import PaymentRepository
 from app.repositories.user_repo import UserRepository
 from app.services.discount_service import DiscountService
+from app.services.subscription_price_service import SubscriptionPriceService
 
 
 PLAN_PRICES = {
@@ -22,6 +23,9 @@ class PaymentService:
     def get_plan_price(self, plan_type: str) -> Optional[int]:
         return PLAN_PRICES.get(plan_type)
 
+    async def get_plan_price_value(self, payment_method: str | None, plan_type: str):
+        return await SubscriptionPriceService(self.session).get_price(payment_method, plan_type)
+
     def calculate_discounted_price(self, amount: int) -> int:
         discounted = amount * (100 - DISCOUNT_PERCENT) / 100
         return int(round(discounted))
@@ -39,24 +43,12 @@ class PaymentService:
         force_feedback_discount: bool = False,
         feedback_id: Optional[int] = None,
     ):
-        base_amount = self.get_plan_price(plan_type)
-        if base_amount is None:
+        price = await self.get_plan_price_value(user.payment_method, plan_type)
+        if price is None:
             return None
 
-        if user.payment_method in ["alipay", "wechat"]:
-            if plan_type == "10_days":
-                base_amount = 29
-            elif plan_type == "1_month":
-                base_amount = 66
-
-            currency = "¥"
-        else:
-            if plan_type == "10_days":
-                base_amount = 29
-            elif plan_type == "1_month":
-                base_amount = 89
-
-            currency = "somoni"
+        base_amount = price.amount
+        currency = price.currency
 
         discount_service = DiscountService(self.session)
         if force_feedback_discount:

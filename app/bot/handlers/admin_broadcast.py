@@ -139,6 +139,8 @@ async def broadcast_command(message: Message, state: FSMContext):
         discount_filter=None,
         course_promo_filter=None,
         activity_filter=None,
+        target_user_id=None,
+        target_label=None,
         bc_section="main",
     )
 
@@ -262,6 +264,7 @@ async def bc_enter_text(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
+    await state.update_data(target_user_id=None, target_label=None)
     await state.set_state(BroadcastStates.waiting_for_text)
     await callback.answer()
     await callback.message.answer(
@@ -269,6 +272,50 @@ async def bc_enter_text(callback: CallbackQuery, state: FSMContext):
         "• faqat matn\n"
         "• foto + caption\n"
         "• video + caption"
+    )
+
+
+@router.callback_query(F.data == "bc:target_user")
+async def bc_target_user(callback: CallbackQuery, state: FSMContext):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+
+    await state.update_data(target_user_id=None, target_label=None)
+    await state.set_state(BroadcastStates.waiting_for_target)
+    await callback.answer()
+    await callback.message.answer(
+        "🎯 Bitta userga xabar\n\n"
+        "Telegram ID yoki username yuboring.\n"
+        "Misol: <code>123456789</code> yoki <code>@username</code>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(StateFilter(BroadcastStates.waiting_for_target))
+async def bc_receive_target(message: Message, state: FSMContext, session):
+    if not _is_admin(message.from_user.id):
+        return
+
+    identifier = (message.text or "").strip()
+    user = await UserRepository(session).find_by_identifier(identifier)
+    if not user:
+        await message.answer("❌ User topilmadi. Telegram ID yoki @username ni tekshiring.")
+        return
+
+    target_label = f"{user.full_name or '-'}"
+    if user.username:
+        target_label += f" (@{user.username})"
+    await state.update_data(
+        target_user_id=user.telegram_id,
+        target_label=target_label,
+    )
+    await state.set_state(BroadcastStates.waiting_for_text)
+    await message.answer(
+        f"✅ Target: <b>{escape(target_label)}</b>\n"
+        f"ID: <code>{user.telegram_id}</code>\n\n"
+        "Endi xabarni yuboring: matn, foto yoki video + caption.",
+        parse_mode="HTML",
     )
 
 
@@ -303,18 +350,23 @@ async def bc_receive_text(message: Message, state: FSMContext, session):
 
     data = await state.get_data()
     user_repo = UserRepository(session)
-    users = await user_repo.get_filtered_users(
-        language=data.get("lang_filter"),
-        status=data.get("status_filter"),
-        level=data.get("level_filter"),
-        learning_mode=data.get("mode_filter"),
-        payment_status=data.get("payment_status_filter"),
-        payment_method=data.get("payment_method_filter"),
-        selected_plan_type=data.get("plan_filter"),
-        discount_filter=data.get("discount_filter"),
-        course_promo_filter=data.get("course_promo_filter"),
-        activity_filter=data.get("activity_filter"),
-    )
+    target_user_id = data.get("target_user_id")
+    if target_user_id:
+        target_user = await user_repo.get_by_telegram_id(int(target_user_id))
+        users = [target_user] if target_user else []
+    else:
+        users = await user_repo.get_filtered_users(
+            language=data.get("lang_filter"),
+            status=data.get("status_filter"),
+            level=data.get("level_filter"),
+            learning_mode=data.get("mode_filter"),
+            payment_status=data.get("payment_status_filter"),
+            payment_method=data.get("payment_method_filter"),
+            selected_plan_type=data.get("plan_filter"),
+            discount_filter=data.get("discount_filter"),
+            course_promo_filter=data.get("course_promo_filter"),
+            activity_filter=data.get("activity_filter"),
+        )
     count = len(users)
 
     media_label = {"text": "Matn", "photo": "Foto", "video": "Video"}[content_type]
@@ -324,8 +376,8 @@ async def bc_receive_text(message: Message, state: FSMContext, session):
         "📢 <b>Broadcast tasdiqlash</b>\n\n"
         f"Tur: <b>{media_label}</b>\n"
         f"<blockquote>{preview}</blockquote>\n\n"
-        f"👥 Segment: <b>{count} ta user</b>\n"
-        "⚠️ Xabar faqat tanlangan filterlarga mos userlarga yuboriladi.\n\n"
+        f"👥 Target: <b>{escape(data.get('target_label') or f'{count} ta user')}</b>\n"
+        "⚠️ Xabar faqat tanlangan user yoki filter segmentiga yuboriladi.\n\n"
         "Tasdiqlaysizmi?"
     )
 
@@ -374,18 +426,23 @@ async def bc_confirm(callback: CallbackQuery, state: FSMContext, session):
         return
 
     user_repo = UserRepository(session)
-    users = await user_repo.get_filtered_users(
-        language=data.get("lang_filter"),
-        status=data.get("status_filter"),
-        level=data.get("level_filter"),
-        learning_mode=data.get("mode_filter"),
-        payment_status=data.get("payment_status_filter"),
-        payment_method=data.get("payment_method_filter"),
-        selected_plan_type=data.get("plan_filter"),
-        discount_filter=data.get("discount_filter"),
-        course_promo_filter=data.get("course_promo_filter"),
-        activity_filter=data.get("activity_filter"),
-    )
+    target_user_id = data.get("target_user_id")
+    if target_user_id:
+        target_user = await user_repo.get_by_telegram_id(int(target_user_id))
+        users = [target_user] if target_user else []
+    else:
+        users = await user_repo.get_filtered_users(
+            language=data.get("lang_filter"),
+            status=data.get("status_filter"),
+            level=data.get("level_filter"),
+            learning_mode=data.get("mode_filter"),
+            payment_status=data.get("payment_status_filter"),
+            payment_method=data.get("payment_method_filter"),
+            selected_plan_type=data.get("plan_filter"),
+            discount_filter=data.get("discount_filter"),
+            course_promo_filter=data.get("course_promo_filter"),
+            activity_filter=data.get("activity_filter"),
+        )
     total = len(users)
 
     await callback.message.edit_text(f"⏳ Yuborilmoqda... (0/{total})")

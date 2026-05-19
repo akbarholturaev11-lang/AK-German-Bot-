@@ -146,6 +146,9 @@ class DiscountService:
         plan_type: str,
         payment_method: Optional[str],
     ) -> bool:
+        if campaign.target_telegram_id and campaign.target_telegram_id != user.telegram_id:
+            return False
+
         checks = [
             (campaign.audience_status, getattr(user, "status", None)),
             (campaign.audience_language, getattr(user, "language", None)),

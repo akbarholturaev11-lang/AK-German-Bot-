@@ -29,6 +29,7 @@ async def cmd_start(
     user, created = await service.get_or_create_user(
         telegram_id=message.from_user.id,
         full_name=message.from_user.full_name if message.from_user else None,
+        username=message.from_user.username if message.from_user else None,
         referral_code=referral_code,
     )
 
@@ -61,6 +62,7 @@ async def process_language(callback: CallbackQuery, state: FSMContext, session):
     user, _ = await service.get_or_create_user(
         telegram_id=callback.from_user.id,
         full_name=callback.from_user.full_name if callback.from_user else None,
+        username=callback.from_user.username if callback.from_user else None,
     )
     user.language = lang
     await session.commit()
@@ -263,6 +265,7 @@ async def process_level(callback: CallbackQuery, state: FSMContext, session):
     user, _ = await service.get_or_create_user(
         telegram_id=callback.from_user.id,
         full_name=callback.from_user.full_name if callback.from_user else None,
+        username=callback.from_user.username if callback.from_user else None,
     )
     now = datetime.now(timezone.utc)
     user.level = level

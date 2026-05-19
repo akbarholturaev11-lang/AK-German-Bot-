@@ -5,6 +5,7 @@ def discount_panel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Yangi chegirma", callback_data="disc:new")],
+            [InlineKeyboardButton(text="🎯 Bitta userga maxsus chegirma", callback_data="disc:target")],
             [InlineKeyboardButton(text="📋 Oxirgi chegirmalar", callback_data="disc:list")],
         ]
     )

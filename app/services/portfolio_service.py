@@ -9,7 +9,6 @@ from sqlalchemy import delete, func, or_, select
 from app.db.models.payment import Payment
 from app.db.models.portfolio import PortfolioTransaction
 from app.services.ai_usage_budget_service import (
-    PROFIT_MARGIN,
     USD_TO_SOMONI,
     USD_TO_YUAN,
 )
@@ -41,14 +40,14 @@ class PortfolioService:
             return float(amount) / USD_TO_YUAN
         return None
 
-    async def _transaction_exists(self, payment_id: int, source: str) -> bool:
+    async def _get_transaction(self, payment_id: int, source: str) -> Optional[PortfolioTransaction]:
         result = await self.session.execute(
-            select(PortfolioTransaction.id)
+            select(PortfolioTransaction)
             .where(PortfolioTransaction.payment_id == payment_id)
             .where(PortfolioTransaction.source == source)
             .limit(1)
         )
-        return result.scalar_one_or_none() is not None
+        return result.scalar_one_or_none()
 
     async def _delete_stale_subscription_profits(self) -> None:
         approved_payment_ids = select(Payment.id).where(Payment.payment_status == "approved")
@@ -68,17 +67,24 @@ class PortfolioService:
         if revenue_usd is None:
             return
 
-        if not await self._transaction_exists(payment.id, "subscription_profit"):
+        transaction = await self._get_transaction(payment.id, "subscription_profit")
+        if transaction:
+            transaction.amount_usd = revenue_usd
+            transaction.original_amount = payment.amount
+            transaction.original_currency = payment.currency
+            transaction.user_telegram_id = payment.user_telegram_id
+            transaction.note = "100% revenue from subscription"
+        else:
             self.session.add(
                 PortfolioTransaction(
                     transaction_type="profit",
                     source="subscription_profit",
-                    amount_usd=revenue_usd * PROFIT_MARGIN,
+                    amount_usd=revenue_usd,
                     original_amount=payment.amount,
                     original_currency=payment.currency,
                     payment_id=payment.id,
                     user_telegram_id=payment.user_telegram_id,
-                    note=f"{int(PROFIT_MARGIN * 100)}% profit from subscription",
+                    note="100% revenue from subscription",
                     created_at=payment.reviewed_at or datetime.now(timezone.utc),
                 )
             )

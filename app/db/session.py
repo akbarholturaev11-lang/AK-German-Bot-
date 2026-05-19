@@ -24,6 +24,7 @@ _BOOTSTRAP_COLUMNS: dict[str, dict[str, str]] = {
     "users": {
         "pending_checkout_msg_id": "INTEGER",
         "voice_mode": "VARCHAR(20) DEFAULT 'none' NOT NULL",
+        "username": "VARCHAR(64)",
     },
     "payments": {
         "checkout_msg_id": "INTEGER",
@@ -45,6 +46,7 @@ _BOOTSTRAP_COLUMNS: dict[str, dict[str, str]] = {
         "reason_tj": "VARCHAR(700)",
         "reason_ru": "VARCHAR(700)",
         "reason_uz": "VARCHAR(700)",
+        "target_telegram_id": "BIGINT",
     },
     "bot_feedbacks": {
         "price_offer_due_at": "TIMESTAMP WITH TIME ZONE",

@@ -1,5 +1,6 @@
 from app.db.session import async_session_maker
 from app.bot.middlewares.db import DBSessionMiddleware
+from app.bot.middlewares.required_channel import RequiredChannelMiddleware
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
@@ -7,6 +8,7 @@ from aiogram.enums import ParseMode
 from app.db.session import init_db
 
 from app.bot.handlers.start import router as start_router
+from app.bot.handlers.required_channel import router as required_channel_router
 from app.bot.handlers.commands import router as commands_router
 from app.bot.handlers.referral import router as referral_router
 from app.bot.handlers.subscription import router as subscription_router
@@ -31,7 +33,10 @@ def create_bot(settings):
 
     dp.message.middleware(DBSessionMiddleware(async_session_maker))
     dp.callback_query.middleware(DBSessionMiddleware(async_session_maker))
+    dp.message.middleware(RequiredChannelMiddleware(async_session_maker))
+    dp.callback_query.middleware(RequiredChannelMiddleware(async_session_maker))
 
+    dp.include_router(required_channel_router)
     dp.include_router(start_router)
     dp.include_router(commands_router)
     dp.include_router(admin_discount_router)

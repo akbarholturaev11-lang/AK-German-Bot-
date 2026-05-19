@@ -6,6 +6,9 @@ from .bot_feedback import BotFeedback
 from .message import Message
 from .ai_usage import AIUsageBudget, AIUsageEvent
 from .portfolio import PortfolioTransaction
+from .bot_setting import BotSetting
+from .required_channel import RequiredChannel
+from .subscription_price import SubscriptionPrice
 
 from .course_lessons import CourseLesson
 from .course_attempts import CourseAttempt

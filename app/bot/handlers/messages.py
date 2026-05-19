@@ -18,6 +18,7 @@ from aiogram.types import (
 from app.bot.fsm.admin_audio import AdminAudioStates
 from app.bot.fsm.admin_broadcast import BroadcastStates
 from app.bot.fsm.admin_discount import DiscountStates
+from app.bot.fsm.admin_management import AdminPriceStates, AdminRequiredChannelStates
 from app.bot.fsm.admin_portfolio import AdminPortfolioStates
 from app.bot.utils.response_effect import ResponseEffect
 from app.bot.handlers.course import (
@@ -77,7 +78,9 @@ _COURSE_TUTOR_STEPS = {
 
 _ADMIN_FSM_STATES = {
     AdminAudioStates.waiting_for_audio.state,
+    BroadcastStates.waiting_for_target.state,
     BroadcastStates.waiting_for_text.state,
+    DiscountStates.waiting_target_identifier.state,
     DiscountStates.waiting_title.state,
     DiscountStates.waiting_percent.state,
     DiscountStates.waiting_custom_duration.state,
@@ -87,6 +90,8 @@ _ADMIN_FSM_STATES = {
     DiscountStates.waiting_notify_media.state,
     AdminPortfolioStates.waiting_amount.state,
     AdminPortfolioStates.waiting_reason.state,
+    AdminPriceStates.waiting_amount.state,
+    AdminRequiredChannelStates.waiting_channel.state,
 }
 
 

@@ -10,6 +10,7 @@ from app.repositories.bot_feedback_repo import BotFeedbackRepository
 from app.repositories.user_repo import UserRepository
 from app.services.discount_service import DiscountService
 from app.services.payment_service import PaymentService
+from app.services.subscription_price_service import SubscriptionPriceService
 from app.bot.utils.discount_formatter import build_admin_discount_block, build_discount_plan_line
 from app.bot.utils.i18n import t
 from app.bot.keyboards.subscription import (
@@ -60,7 +61,10 @@ def _campaign_back_callback(name: str, campaign_id: int | None) -> str:
     return f"discount_offer:{name}:{campaign_id}" if campaign_id else f"discount_offer:{name}"
 
 
-def _plan_price(plan_type: str, payment_method: str | None) -> tuple[int, str]:
+async def _plan_price(session, plan_type: str, payment_method: str | None) -> tuple[int, str]:
+    price = await SubscriptionPriceService(session).get_price(payment_method, plan_type)
+    if price:
+        return price.amount, price.currency
     if payment_method in ("alipay", "wechat"):
         return (66 if plan_type == "1_month" else 29), "¥"
     return (89 if plan_type == "1_month" else 29), "somoni"
@@ -119,7 +123,7 @@ async def _admin_discount_offer(session, user, lang: str, *, as_window: bool = F
     main_choice = max(plan_choices.values(), key=lambda item: item.percent)
     lines = []
     for plan in ("10_days", "1_month"):
-        base, currency = _plan_price(plan, user.payment_method)
+        base, currency = await _plan_price(session, plan, user.payment_method)
         choice = plan_choices.get(plan)
         percent = choice.percent if choice else 0
         lines.append(
@@ -146,16 +150,23 @@ async def _admin_discount_offer(session, user, lang: str, *, as_window: bool = F
     )
 
 
-def build_subscription_main_text_for_user(user, lang: str) -> str:
-    use_yuan = getattr(user, "payment_method", None) in ("alipay", "wechat")
+def _plan_label(plan_type: str, lang: str) -> str:
+    labels = {
+        "tj": {"10_days": "10 рӯз", "1_month": "1 моҳ"},
+        "ru": {"10_days": "10 дней", "1_month": "1 месяц"},
+        "uz": {"10_days": "10 kunlik", "1_month": "1 oylik"},
+    }
+    return labels.get(lang, labels["ru"]).get(plan_type, plan_type)
 
-    plan_10_key = "subscription_plan_10_days_yuan" if use_yuan else "subscription_plan_10_days"
-    plan_1m_key = "subscription_plan_1_month_yuan" if use_yuan else "subscription_plan_1_month"
+
+async def build_subscription_main_text_for_user(session, user, lang: str) -> str:
+    price_10 = await _plan_price(session, "10_days", getattr(user, "payment_method", None))
+    price_1m = await _plan_price(session, "1_month", getattr(user, "payment_method", None))
 
     base = (
         f"{t('subscription_main_title', lang)}\n\n"
-        f"{t(plan_10_key, lang)}\n"
-        f"{t(plan_1m_key, lang)}"
+        f"{_plan_label('10_days', lang)} — {price_10[0]} {price_10[1]}\n"
+        f"{_plan_label('1_month', lang)} — {price_1m[0]} {price_1m[1]}"
     )
 
     # Show discount hint only if user hasn't used it yet
@@ -165,7 +176,8 @@ def build_subscription_main_text_for_user(user, lang: str) -> str:
     return base
 
 
-def build_subscription_discount_progress_text(
+async def build_subscription_discount_progress_text(
+    session,
     lang: str,
     referral_link: str,
     count: int,
@@ -181,15 +193,15 @@ def build_subscription_discount_progress_text(
     )
 
     if discount_eligible and not discount_used:
-        # Show correct currency prices based on payment method
-        is_yuan = payment_method in ("alipay", "wechat")
-        plan_10_key = "subscription_discount_plan_10_days_yuan" if is_yuan else "subscription_discount_plan_10_days"
-        plan_1m_key = "subscription_discount_plan_1_month_yuan" if is_yuan else "subscription_discount_plan_1_month"
+        price_10 = await _plan_price(session, "10_days", payment_method)
+        price_1m = await _plan_price(session, "1_month", payment_method)
+        discount_10 = int(round(price_10[0] * 0.8))
+        discount_1m = int(round(price_1m[0] * 0.8))
 
         base += (
             f"\n\n{t('subscription_discount_ready', lang)}\n\n"
-            f"{t(plan_10_key, lang)}\n"
-            f"{t(plan_1m_key, lang)}"
+            f"{_plan_label('10_days', lang)} — {discount_10} {price_10[1]}\n"
+            f"{_plan_label('1_month', lang)} — {discount_1m} {price_1m[1]}"
         )
 
     return base
@@ -226,7 +238,7 @@ def build_subscription_main_keyboard_for_user(user, lang: str, show_referral: bo
 
 async def build_subscription_main_view(session, user, lang: str) -> tuple[str, InlineKeyboardMarkup]:
     return (
-        build_subscription_main_text_for_user(user, lang),
+        await build_subscription_main_text_for_user(session, user, lang),
         build_subscription_main_keyboard_for_user(user, lang),
     )
 
@@ -288,7 +300,7 @@ async def build_admin_discount_plan_view(
     lines = []
     for plan in plans:
         choice = choices[(payment_method, plan)]
-        base, currency = _plan_price(plan, payment_method)
+        base, currency = await _plan_price(session, plan, payment_method)
         lines.append(
             build_discount_plan_line(
                 lang=lang,
@@ -351,7 +363,7 @@ async def build_feedback_discount_plan_view(
 
     lines = []
     for plan in PLANS:
-        base, currency = _plan_price(plan, payment_method)
+        base, currency = await _plan_price(session, plan, payment_method)
         lines.append(
             build_discount_plan_line(
                 lang=lang,
@@ -754,7 +766,8 @@ async def subscription_referral_discount_handler(callback: CallbackQuery, sessio
     referral_link = f"https://t.me/{settings.BOT_USERNAME}?start={user.referral_code}"
     count = user.discount_referral_count
 
-    text = build_subscription_discount_progress_text(
+    text = await build_subscription_discount_progress_text(
+        session,
         lang,
         referral_link,
         count,

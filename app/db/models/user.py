@@ -14,6 +14,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    username: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
 
     payment_method = Column(String, nullable=True)
 

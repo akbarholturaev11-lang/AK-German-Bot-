@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from html import escape
 
 from app.bot.fsm.admin_portfolio import AdminPortfolioStates
+from app.bot.fsm.admin_management import AdminPriceStates, AdminRequiredChannelStates
 from app.config import settings
 from app.repositories.user_repo import UserRepository
 from app.repositories.course_audio_repo import CourseAudioRepository
@@ -18,6 +19,8 @@ from app.db.models.course_progress import CourseProgress
 from app.db.models.referral import Referral
 from app.services.ai_usage_budget_service import USD_TO_SOMONI, USD_TO_YUAN
 from app.services.portfolio_service import PortfolioService
+from app.services.required_channel_service import RequiredChannelService
+from app.services.subscription_price_service import PAYMENT_METHODS, PLANS, SubscriptionPriceService
 
 router = Router()
 
@@ -32,7 +35,10 @@ def _is_admin(user_id: int) -> bool:
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
+        [InlineKeyboardButton(text="🔎 User qidirish", callback_data="adm:user_search_info")],
         [InlineKeyboardButton(text="💼 Portfel", callback_data="adm:portfolio")],
+        [InlineKeyboardButton(text="💳 Obuna narxlari", callback_data="adm:prices")],
+        [InlineKeyboardButton(text="📣 Majburiy kanal obunasi", callback_data="adm:channels")],
         [InlineKeyboardButton(text="🗑 Foydalanuvchini o'chirish", callback_data="adm:deleteuser_info")],
         [InlineKeyboardButton(text="📢 Broadcast xabar", callback_data="adm:broadcast_info")],
         [InlineKeyboardButton(text="🎁 Chegirma boshqaruv", callback_data="adm:discount_panel")],
@@ -183,6 +189,211 @@ def _parse_amount_currency(text: str) -> tuple[float, str] | None:
     return amount, parts[1]
 
 
+def _method_label(method: str) -> str:
+    return {
+        "visa": "Visa/somoni",
+        "alipay": "Alipay/¥",
+        "wechat": "WeChat/¥",
+    }.get(method, method)
+
+
+def _plan_label_admin(plan: str) -> str:
+    return {"10_days": "10 kun", "1_month": "1 oy"}.get(plan, plan)
+
+
+async def _prices_text(session) -> str:
+    prices = await SubscriptionPriceService(session).all_prices()
+    lines = ["💳 <b>Obuna narxlari</b>", ""]
+    for price in prices:
+        lines.append(
+            f"{_method_label(price.payment_method)} · {_plan_label_admin(price.plan_type)}: "
+            f"<b>{price.amount} {price.currency}</b>"
+        )
+    lines.extend([
+        "",
+        "Narxni o'zgartirish uchun pastdagi tarifni tanlang.",
+    ])
+    return "\n".join(lines)
+
+
+def prices_keyboard() -> InlineKeyboardMarkup:
+    rows = []
+    for method in PAYMENT_METHODS:
+        rows.append([
+            InlineKeyboardButton(
+                text=f"{_method_label(method)} · 10 kun",
+                callback_data=f"adm:price_set:{method}:10_days",
+            ),
+            InlineKeyboardButton(
+                text=f"{_method_label(method)} · 1 oy",
+                callback_data=f"adm:price_set:{method}:1_month",
+            ),
+        ])
+    rows.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def channel_panel_keyboard(enabled: bool, channels) -> InlineKeyboardMarkup:
+    rows = [[
+        InlineKeyboardButton(
+            text="🟢 ON" if enabled else "⚪ ON",
+            callback_data="adm:channels_mode:on",
+        ),
+        InlineKeyboardButton(
+            text="🔴 OFF" if not enabled else "⚪ OFF",
+            callback_data="adm:channels_mode:off",
+        ),
+    ]]
+    rows.append([InlineKeyboardButton(text="➕ Kanal qo'shish", callback_data="adm:channel_add")])
+    for channel in channels[:20]:
+        label = "✅" if channel.is_active else "⛔"
+        rows.append([
+            InlineKeyboardButton(
+                text=f"{label} #{channel.id} {channel.title[:28]}",
+                callback_data=f"adm:channel_toggle:{channel.id}",
+            )
+        ])
+    rows.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _channel_panel_text(session) -> tuple[str, InlineKeyboardMarkup]:
+    service = RequiredChannelService(session)
+    enabled = await service.is_enabled()
+    channels = await service.list_channels()
+    active_count = len([item for item in channels if item.is_active])
+    lines = [
+        "📣 <b>Majburiy kanal obunasi</b>",
+        "",
+        f"Rejim: <b>{'ON' if enabled else 'OFF'}</b>",
+        f"Aktiv kanallar: <b>{active_count}</b>",
+        "",
+        "Kanal qo'shish formati:",
+        "<code>@channel Kanal nomi</code>",
+        "<code>-1001234567890 https://t.me/+invite Kanal nomi</code>",
+    ]
+    if channels:
+        lines.extend(["", "<b>Kanallar:</b>"])
+        for channel in channels[:20]:
+            status = "ON" if channel.is_active else "OFF"
+            lines.append(
+                f"#{channel.id} [{status}] <code>{escape(channel.chat_id)}</code> — {escape(channel.title)}"
+            )
+    return "\n".join(lines), channel_panel_keyboard(enabled, channels)
+
+
+def _parse_channel_input(text: str) -> tuple[str, str | None, str] | None:
+    parts = (text or "").strip().split()
+    if len(parts) < 2:
+        return None
+    chat_id = parts[0]
+    invite_link = None
+    title_parts = parts[1:]
+    if len(parts) >= 3 and parts[1].startswith(("http://", "https://")):
+        invite_link = parts[1]
+        title_parts = parts[2:]
+    if not title_parts:
+        return None
+    if not (chat_id.startswith("@") or chat_id.startswith("-100")):
+        return None
+    return chat_id, invite_link, " ".join(title_parts)[:180]
+
+
+def _fmt_dt(value) -> str:
+    if not value:
+        return "—"
+    try:
+        return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return str(value)
+
+
+async def _admin_user_info_text(session, user: User) -> str:
+    fields = []
+    for column in User.__table__.columns:
+        value = getattr(user, column.name, None)
+        fields.append(f"{column.name}: {value}")
+
+    payment_rows = await session.execute(
+        select(Payment)
+        .where(Payment.user_telegram_id == user.telegram_id)
+        .order_by(Payment.submitted_at.desc())
+        .limit(5)
+    )
+    payments = list(payment_rows.scalars().all())
+    payment_count = (await session.execute(
+        select(func.count()).select_from(Payment).where(Payment.user_telegram_id == user.telegram_id)
+    )).scalar() or 0
+    approved_sum = (await session.execute(
+        select(func.sum(Payment.amount)).where(
+            Payment.user_telegram_id == user.telegram_id,
+            Payment.payment_status == "approved",
+        )
+    )).scalar() or 0
+
+    referral_rows = await session.execute(
+        select(Referral.status, func.count().label("cnt"))
+        .where(Referral.referrer_telegram_id == user.telegram_id)
+        .group_by(Referral.status)
+    )
+    referral_counts = {row.status: row.cnt for row in referral_rows.fetchall()}
+    referral_total = sum(referral_counts.values())
+    invited_by = await session.execute(
+        select(Referral).where(Referral.invited_user_telegram_id == user.telegram_id).limit(1)
+    )
+    invited_ref = invited_by.scalar_one_or_none()
+
+    progress_result = await session.execute(
+        select(CourseProgress).where(CourseProgress.user_id == user.id).limit(1)
+    )
+    progress = progress_result.scalar_one_or_none()
+
+    lines = [
+        "🔎 <b>User to'liq ma'lumoti</b>",
+        "",
+        f"Telegram ID: <code>{user.telegram_id}</code>",
+        f"Username: <b>@{escape(user.username)}</b>" if user.username else "Username: —",
+        f"Full name: <b>{escape(user.full_name or '—')}</b>",
+        "",
+        "<b>User model:</b>",
+        "<blockquote>",
+        escape("\n".join(fields[:60])),
+        "</blockquote>",
+        "",
+        "<b>Referallar:</b>",
+        f"Chaqirganlari jami: <b>{referral_total}</b>",
+        f"Statuslar: <code>{escape(str(referral_counts))}</code>",
+        f"Discount counter: <b>{user.discount_referral_count}</b>",
+        f"Taklif qilgan user: <code>{invited_ref.referrer_telegram_id if invited_ref else '—'}</code>",
+        "",
+        "<b>To'lovlar:</b>",
+        f"Jami payment: <b>{payment_count}</b>",
+        f"Tasdiqlangan summa: <b>{approved_sum or 0}</b>",
+    ]
+    for payment in payments:
+        lines.append(
+            f"#{payment.id} {payment.payment_status} · {payment.plan_type} · "
+            f"{payment.amount} {payment.currency} · {payment.payment_method or '-'} · {_fmt_dt(payment.submitted_at)}"
+        )
+
+    lines.extend(["", "<b>Kurs progress:</b>"])
+    if progress:
+        lines.extend([
+            f"Level: <b>{escape(progress.level)}</b>",
+            f"Current lesson id: <code>{progress.current_lesson_id}</code>",
+            f"Current step: <code>{escape(progress.current_step)}</code>",
+            f"Completed lessons: <b>{progress.completed_lessons_count}</b>",
+            f"Homework: <code>{escape(progress.homework_status)}</code>",
+            f"Reminder: <b>{progress.reminder_enabled}</b> · {progress.reminder_time or '—'}",
+            f"Last opened: <code>{_fmt_dt(progress.last_opened_at)}</code>",
+            f"Last completed: <code>{_fmt_dt(progress.last_completed_at)}</code>",
+        ])
+    else:
+        lines.append("Kurs progress yo'q.")
+
+    return "\n".join(lines)
+
+
 async def _start_portfolio_flow(
     *,
     state: FSMContext,
@@ -290,7 +501,7 @@ def _portfolio_summary_text(summary) -> str:
         f"  Brutto tushum: <b>{_usd(summary.gross_revenue_usd)}</b>\n"
         f"  Kurs: <code>1$ = {USD_TO_SOMONI} somoni</code>, <code>1$ = {USD_TO_YUAN} ¥</code>\n\n"
         f"<b>📈 Foyda</b>\n"
-        f"  Obunalardan auto 40%: <b>{_usd(summary.subscription_profit_usd)}</b>\n"
+        f"  Obunalardan auto tushum: <b>{_usd(summary.subscription_profit_usd)}</b>\n"
         f"  Qo'lda qo'shilgan foyda: <b>{_usd(summary.manual_profit_usd)}</b>\n"
         f"  Jami foyda: <b>{_usd(summary.total_profit_usd)}</b>\n\n"
         f"<b>📉 Rasxod</b>\n"
@@ -370,6 +581,213 @@ async def admin_portfolio_callback(callback: CallbackQuery, state: FSMContext, s
         reply_markup=portfolio_keyboard(),
         parse_mode="HTML",
     )
+
+
+@router.callback_query(F.data == "adm:user_search_info")
+async def admin_user_search_info(callback: CallbackQuery, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await callback.answer()
+    await _edit_callback_message(
+        callback,
+        "🔎 <b>User qidirish</b>\n\n"
+        "Buyruq: <code>/user TELEGRAM_ID</code> yoki <code>/user @username</code>\n\n"
+        "Natijada user modeli, to'lovlar, referallar va kurs progress chiqadi.",
+        reply_markup=admin_back_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("user"))
+async def admin_user_search_command(message: Message, session):
+    if not _is_admin(message.from_user.id):
+        return
+    parts = message.text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer(
+            "Foydalanish: <code>/user TELEGRAM_ID</code> yoki <code>/user @username</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    repo = UserRepository(session)
+    users = await repo.search_by_identifier(parts[1], limit=5)
+    if not users:
+        await message.answer("❌ User topilmadi.")
+        return
+
+    if len(users) > 1:
+        lines = ["Bir nechta user topildi. Aniq ID bilan qayta qidiring:", ""]
+        for item in users:
+            username = f"@{item.username}" if item.username else "—"
+            lines.append(f"<code>{item.telegram_id}</code> · {escape(item.full_name or '—')} · {escape(username)}")
+        await message.answer("\n".join(lines), parse_mode="HTML")
+        return
+
+    await message.answer(await _admin_user_info_text(session, users[0]), parse_mode="HTML")
+
+
+@router.callback_query(F.data == "adm:prices")
+async def admin_prices_callback(callback: CallbackQuery, state: FSMContext, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await state.clear()
+    await callback.answer()
+    await _edit_callback_message(
+        callback,
+        await _prices_text(session),
+        reply_markup=prices_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("adm:price_set:"))
+async def admin_price_set_callback(callback: CallbackQuery, state: FSMContext, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    parts = callback.data.split(":")
+    method = parts[2]
+    plan = parts[3]
+    if method not in PAYMENT_METHODS or plan not in PLANS:
+        await callback.answer("Noto'g'ri tarif", show_alert=True)
+        return
+    await state.update_data(price_method=method, price_plan=plan)
+    await state.set_state(AdminPriceStates.waiting_amount)
+    await callback.answer()
+    await _edit_callback_message(
+        callback,
+        f"💳 <b>Narx o'zgartirish</b>\n\n"
+        f"Usul: <b>{_method_label(method)}</b>\n"
+        f"Tarif: <b>{_plan_label_admin(plan)}</b>\n\n"
+        "Yangi narxni raqam bilan yuboring. Masalan: <code>99</code>",
+        reply_markup=admin_back_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.message(StateFilter(AdminPriceStates.waiting_amount))
+async def admin_price_amount_handler(message: Message, state: FSMContext, session):
+    if not _is_admin(message.from_user.id):
+        return
+    try:
+        amount = int((message.text or "").strip())
+    except ValueError:
+        await message.answer("❌ Narx raqam bo'lishi kerak. Masalan: <code>99</code>", parse_mode="HTML")
+        return
+    if amount <= 0 or amount > 1_000_000:
+        await message.answer("❌ Narx 1 dan 1 000 000 gacha bo'lsin.")
+        return
+
+    data = await state.get_data()
+    method = data.get("price_method")
+    plan = data.get("price_plan")
+    price = await SubscriptionPriceService(session).set_price(
+        payment_method=method,
+        plan_type=plan,
+        amount=amount,
+        updated_by_telegram_id=message.from_user.id,
+    )
+    if not price:
+        await message.answer("❌ Narx saqlanmadi. Tarif noto'g'ri.")
+        return
+    await session.commit()
+    await state.clear()
+    await message.answer(
+        f"✅ Narx yangilandi: <b>{_method_label(price.payment_method)} · "
+        f"{_plan_label_admin(price.plan_type)} = {price.amount} {price.currency}</b>",
+        parse_mode="HTML",
+        reply_markup=prices_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "adm:channels")
+async def admin_channels_callback(callback: CallbackQuery, state: FSMContext, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await state.clear()
+    await callback.answer()
+    text, keyboard = await _channel_panel_text(session)
+    await _edit_callback_message(callback, text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("adm:channels_mode:"))
+async def admin_channels_mode_callback(callback: CallbackQuery, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    enabled = callback.data.split(":")[2] == "on"
+    service = RequiredChannelService(session)
+    await service.set_enabled(enabled)
+    await session.commit()
+    await callback.answer("Saqlandi", show_alert=True)
+    text, keyboard = await _channel_panel_text(session)
+    await _edit_callback_message(callback, text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "adm:channel_add")
+async def admin_channel_add_callback(callback: CallbackQuery, state: FSMContext, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await state.set_state(AdminRequiredChannelStates.waiting_channel)
+    await callback.answer()
+    await _edit_callback_message(
+        callback,
+        "➕ <b>Kanal qo'shish</b>\n\n"
+        "Public kanal:\n<code>@channel Kanal nomi</code>\n\n"
+        "Private kanal:\n<code>-1001234567890 https://t.me/+invite Kanal nomi</code>\n\n"
+        "Bot kanal ichida admin/member bo'lishi kerak, aks holda obunani tekshira olmaydi.",
+        reply_markup=admin_back_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.message(StateFilter(AdminRequiredChannelStates.waiting_channel))
+async def admin_channel_add_message(message: Message, state: FSMContext, session):
+    if not _is_admin(message.from_user.id):
+        return
+    parsed = _parse_channel_input(message.text or "")
+    if not parsed:
+        await message.answer(
+            "❌ Format noto'g'ri.\n\n"
+            "Misol: <code>@channel Kanal nomi</code>",
+            parse_mode="HTML",
+        )
+        return
+    chat_id, invite_link, title = parsed
+    await RequiredChannelService(session).add_channel(
+        chat_id=chat_id,
+        invite_link=invite_link,
+        title=title,
+        created_by_telegram_id=message.from_user.id,
+    )
+    await session.commit()
+    await state.clear()
+    text, keyboard = await _channel_panel_text(session)
+    await message.answer(f"✅ Kanal saqlandi.\n\n{text}", reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("adm:channel_toggle:"))
+async def admin_channel_toggle_callback(callback: CallbackQuery, session):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    channel_id = int(callback.data.split(":")[2])
+    service = RequiredChannelService(session)
+    channels = await service.list_channels()
+    channel = next((item for item in channels if item.id == channel_id), None)
+    if not channel:
+        await callback.answer("Kanal topilmadi", show_alert=True)
+        return
+    await service.set_channel_active(channel_id, not channel.is_active)
+    await session.commit()
+    await callback.answer("Saqlandi", show_alert=True)
+    text, keyboard = await _channel_panel_text(session)
+    await _edit_callback_message(callback, text, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.callback_query(F.data == "adm:portfolio_history")
@@ -791,6 +1209,7 @@ async def admin_broadcast_info(callback: CallbackQuery, session):
         "📢 <b>Broadcast xabar yuborish</b>\n\n"
         "Panelni ochish: <code>/broadcast</code>\n\n"
         "Panelda segmentni tanlab, matn/foto/video + caption yuboring.\n\n"
+        "Bitta userga yuborish uchun panelda <b>🎯 Bitta userga xabar</b> tugmasi bor.\n\n"
         "⚠️ Filtrsiz hammaga yuborish kerak bo'lsa: <code>/broadcast_all Xabar matni</code>",
         reply_markup=admin_back_keyboard(),
         parse_mode="HTML",

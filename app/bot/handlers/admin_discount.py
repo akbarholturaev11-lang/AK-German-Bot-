@@ -32,6 +32,7 @@ from app.bot.keyboards.subscription import admin_discount_entry_keyboard
 from app.repositories.discount_campaign_repo import DiscountCampaignRepository
 from app.repositories.user_repo import UserRepository
 from app.services.discount_translation_service import DiscountTranslationService
+from app.services.subscription_price_service import SubscriptionPriceService
 
 router = Router()
 
@@ -120,6 +121,7 @@ def _wizard_text(data: dict, prompt: str, error: Optional[str] = None) -> str:
         "",
         "<blockquote>",
         f"Nomi: <b>{escape(str(data.get('title') or '—'))}</b>",
+        f"Target: <b>{escape(str(data.get('target_label') or 'Segment'))}</b>",
         f"Foiz: <b>{data.get('percent') or '—'}%</b>",
         f"Davomiylik: <b>{_fmt_duration(duration_hours)}</b>",
         f"Boshlanish: <b>{_fmt_time(start_at)}</b>",
@@ -144,17 +146,20 @@ def _discount_notify_keyboard(lang: str, campaign_id: Optional[int] = None) -> I
     return admin_discount_entry_keyboard(lang, campaign_id=campaign_id)
 
 
-def _plan_price(plan_type: str, payment_method: Optional[str]) -> tuple[int, str]:
+async def _plan_price(session, plan_type: str, payment_method: Optional[str]) -> tuple[int, str]:
+    price = await SubscriptionPriceService(session).get_price(payment_method, plan_type)
+    if price:
+        return price.amount, price.currency
     if payment_method in ("alipay", "wechat"):
         return (66 if plan_type == "1_month" else 29), "¥"
     return (89 if plan_type == "1_month" else 29), "somoni"
 
 
-def _discount_plan_lines(data: dict, lang: str, payment_method: Optional[str]) -> str:
+async def _discount_plan_lines(session, data: dict, lang: str, payment_method: Optional[str]) -> str:
     plans = [data["plan_type"]] if data.get("plan_type") else ["10_days", "1_month"]
     lines = []
     for plan in plans:
-        base, currency = _plan_price(plan, payment_method)
+        base, currency = await _plan_price(session, plan, payment_method)
         lines.append(
             build_discount_plan_line(
                 lang=lang,
@@ -167,7 +172,7 @@ def _discount_plan_lines(data: dict, lang: str, payment_method: Optional[str]) -
     return "\n".join(lines)
 
 
-def _discount_notify_text(data: dict, lang: str, payment_method: Optional[str] = None) -> str:
+async def _discount_notify_text(session, data: dict, lang: str, payment_method: Optional[str] = None) -> str:
     starts_at = data["starts_at"]
     ends_at = starts_at + timedelta(hours=data["duration_hours"])
     return build_admin_discount_block(
@@ -178,7 +183,7 @@ def _discount_notify_text(data: dict, lang: str, payment_method: Optional[str] =
         ends_at=ends_at,
         quota_total=data.get("quota_total"),
         repeat_interval_days=data.get("repeat_interval_days"),
-        plan_lines=_discount_plan_lines(data, lang, payment_method or data.get("payment_method")),
+        plan_lines=await _discount_plan_lines(session, data, lang, payment_method or data.get("payment_method")),
     )
 
 
@@ -265,11 +270,15 @@ async def _notify_discount_users(
     campaign_id: Optional[int] = None,
 ) -> tuple[int, int, int]:
     user_repo = UserRepository(session)
-    users = await user_repo.get_filtered_users(
-        language=data.get("audience_language"),
-        status=data.get("audience_status"),
-        level=data.get("audience_level"),
-    )
+    if data.get("target_telegram_id"):
+        user = await user_repo.get_by_telegram_id(int(data["target_telegram_id"]))
+        users = [user] if user else []
+    else:
+        users = await user_repo.get_filtered_users(
+            language=data.get("audience_language"),
+            status=data.get("audience_status"),
+            level=data.get("audience_level"),
+        )
 
     sent_count = 0
     failed_count = 0
@@ -279,7 +288,7 @@ async def _notify_discount_users(
         if user.telegram_id in admin_ids:
             continue
         lang = user.language or "uz"
-        text = _discount_notify_text(data, lang, user.payment_method)
+        text = await _discount_notify_text(session, data, lang, user.payment_method)
         try:
             if data.get("notify_media_type") == "photo" and data.get("notify_media_file_id"):
                 await callback.bot.send_photo(
@@ -327,6 +336,7 @@ def _preview(data: dict) -> str:
         f"<b>{ends_at.astimezone(ADMIN_TZ):%Y-%m-%d %H:%M}</b> gacha\n"
         f"Kimlarga: status=<b>{_fmt_filter(data.get('audience_status'))}</b>, "
         f"til=<b>{_fmt_filter(data.get('audience_language'))}</b>\n"
+        f"Target user: <b>{escape(str(data.get('target_label') or '—'))}</b>\n"
         f"To'lov: <b>{_fmt_filter(data.get('payment_method'))}</b>, "
         f"tarif=<b>{_fmt_filter(data.get('plan_type'))}</b>\n"
         f"Limit: <b>{quota}</b>\n"
@@ -374,6 +384,62 @@ async def discount_new(callback: CallbackQuery, state: FSMContext):
         callback,
         state,
         _wizard_text({}, "Chegirma nomini yozing. Masalan: May 20%"),
+        discount_cancel_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "disc:target")
+async def discount_target(callback: CallbackQuery, state: FSMContext):
+    if not _is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await state.clear()
+    await state.set_state(DiscountStates.waiting_target_identifier)
+    await callback.answer()
+    await _edit_callback_panel(
+        callback,
+        state,
+        "🎯 <b>Bitta userga maxsus chegirma</b>\n\n"
+        "Telegram ID yoki username yuboring.\n"
+        "Misol: <code>123456789</code> yoki <code>@username</code>",
+        discount_cancel_keyboard(),
+    )
+
+
+@router.message(StateFilter(DiscountStates.waiting_target_identifier))
+async def discount_target_identifier(message: Message, state: FSMContext, session):
+    if not _is_admin(message.from_user.id):
+        return
+
+    identifier = (message.text or "").strip()
+    user = await UserRepository(session).find_by_identifier(identifier)
+    await _delete_admin_input(message)
+    if not user:
+        await _edit_stored_panel(
+            message,
+            state,
+            "❌ User topilmadi.\n\nTelegram ID yoki @username ni qayta yuboring.",
+            discount_cancel_keyboard(),
+        )
+        return
+
+    target_label = f"{user.full_name or '-'}"
+    if user.username:
+        target_label += f" (@{user.username})"
+
+    await state.update_data(
+        target_telegram_id=user.telegram_id,
+        target_label=f"{target_label} / {user.telegram_id}",
+        audience_status=None,
+        audience_language=None,
+        audience_level=None,
+    )
+    await state.set_state(DiscountStates.waiting_title)
+    data = await state.get_data()
+    await _edit_stored_panel(
+        message,
+        state,
+        _wizard_text(data, "Chegirma nomini yozing. Masalan: VIP 30%"),
         discount_cancel_keyboard(),
     )
 
@@ -462,6 +528,14 @@ async def discount_duration(callback: CallbackQuery, state: FSMContext):
         return
     await state.update_data(duration_hours=int(value))
     data = await state.get_data()
+    if data.get("target_telegram_id"):
+        await _edit_callback_panel(
+            callback,
+            state,
+            _wizard_text(data, "Qaysi to'lov turiga?"),
+            discount_payment_method_keyboard(),
+        )
+        return
     await _edit_callback_panel(
         callback,
         state,
@@ -500,6 +574,14 @@ async def discount_custom_duration(message: Message, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     await _delete_admin_input(message)
+    if data.get("target_telegram_id"):
+        await _edit_stored_panel(
+            message,
+            state,
+            _wizard_text(data, "Qaysi to'lov turiga?"),
+            discount_payment_method_keyboard(),
+        )
+        return
     await _edit_stored_panel(
         message,
         state,
@@ -860,6 +942,7 @@ async def discount_confirm(callback: CallbackQuery, state: FSMContext, session):
         ends_at=ends_at,
         audience_status=data.get("audience_status"),
         audience_language=data.get("audience_language"),
+        target_telegram_id=data.get("target_telegram_id"),
         payment_method=data.get("payment_method"),
         plan_type=data.get("plan_type"),
         quota_total=data.get("quota_total"),
@@ -918,8 +1001,9 @@ async def discount_list(callback: CallbackQuery, session):
         status = "aktiv" if item.is_active and item.starts_at <= now < item.ends_at else "passiv"
         used = await repo.count_used(item.id)
         quota = item.quota_total or "∞"
+        target = f" | target: <code>{item.target_telegram_id}</code>" if item.target_telegram_id else ""
         lines.append(
-            f"#{item.id} {escape(str(item.title))} — {item.percent}% | {status} | {used}/{quota}"
+            f"#{item.id} {escape(str(item.title))} — {item.percent}% | {status} | {used}/{quota}{target}"
         )
     await callback.answer()
     await callback.message.edit_text(

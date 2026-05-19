@@ -28,6 +28,7 @@ class DiscountCampaign(Base):
     audience_status: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     audience_language: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     audience_level: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    target_telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     payment_method: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     plan_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
