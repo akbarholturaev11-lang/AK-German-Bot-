@@ -138,10 +138,6 @@ async def handle_reminder_time_button(message: Message, state: FSMContext, sessi
 
     lang = user.language if user.language else "ru"
     await _clear_voice_mode(user, session, state)
-    if not COURSE_MODE_ENABLED:
-        await message.answer(t("course_disabled_text", lang))
-        return
-
     engine = CourseEngineService(session)
     _, progress, error_key = await engine.get_or_create_progress(message.from_user.id)
     if error_key or not progress:
