@@ -48,14 +48,8 @@ async def _block_if_course_disabled(callback, session):
         except:
             pass
 
-        msg_map = {
-            "uz": "🚧 Kurs rejimi hozircha ishlab chiqilmoqda. Tez orada mavjud bo‘ladi.",
-            "ru": "🚧 Режим курса сейчас в разработке. Скоро будет доступен.",
-            "tj": "🚧 Реҷаи курс ҳоло дар навсози аст. Ба зудӣ дастрас мешавад.",
-        }
-
         await callback.answer()
-        await callback.message.answer(msg_map.get(lang, msg_map["ru"]))
+        await callback.message.answer(t("course_disabled_text", lang))
         return True
     return False
 
@@ -380,6 +374,13 @@ async def run_course_entry_flow(
 
     lang = user.language if user.language else "ru"
 
+    if not COURSE_MODE_ENABLED:
+        user.learning_mode = "qa"
+        user.voice_mode = "none"
+        await session.commit()
+        await respond(t("course_disabled_text", lang))
+        return
+
     if user.status != "active":
         await respond(
             t("course_only_active_users", lang),
@@ -511,13 +512,7 @@ async def course_command_handler(message: Message, state: FSMContext, session):
         except:
             pass
 
-        msg_map = {
-            "uz": "🚧 Kurs rejimi hozircha ishlab chiqilmoqda. Tez orada mavjud bo‘ladi.",
-            "ru": "🚧 Режим курса сейчас в разработке. Скоро будет доступен.",
-            "tj": "🚧 Реҷаи курс ҳоло дар таҳия аст. Ба зудӣ дастрас мешавад.",
-        }
-
-        await message.answer(msg_map.get(lang, msg_map["ru"]))
+        await message.answer(t("course_disabled_text", lang))
         return
 
     await run_course_entry_flow(

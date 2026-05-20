@@ -11,7 +11,7 @@ from aiogram.types import (
 from sqlalchemy import select, func
 from app.db.models.user import User
 
-from app.config import settings
+from app.config import COURSE_MODE_ENABLED, settings
 from app.repositories.user_repo import UserRepository
 from app.bot.handlers.subscription import build_subscription_main_text_for_user
 from app.bot.keyboards.subscription import subscription_main_keyboard, payment_method_keyboard
@@ -24,6 +24,18 @@ router = Router()
 
 def _lang(user) -> str:
     return user.language if user and user.language else "ru"
+
+
+def _level_label(level: str) -> str:
+    labels = {
+        "beginner": "0",
+        "az0": "0",
+        "hsk1": "A1",
+        "hsk2": "A2",
+        "hsk3": "B1",
+        "hsk4": "B2",
+    }
+    return labels.get((level or "").strip().lower(), level or "—")
 
 
 async def _clear_voice_mode(user, session, state: FSMContext | None = None) -> None:
@@ -72,7 +84,7 @@ def _profile_text(user, lang: str) -> str:
 
     full_name = escape(str(getattr(user, "full_name", "—") or "—"))
     language = escape(str(getattr(user, "language", "—") or "—"))
-    level = escape(str(getattr(user, "level", "—") or "—"))
+    level = escape(_level_label(str(getattr(user, "level", "—") or "—")))
     status_raw = str(getattr(user, "status", "—") or "—")
     learning_mode = escape(str(getattr(user, "learning_mode", "—") or "—"))
 
@@ -220,21 +232,18 @@ def profile_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
             "subscription": "💎 Обуна",
             "language": "🌐 Забон",
             "level": "📊 Дараҷа",
-            "course": "📚 Курс",
             "qa": "💬 Саволу ҷавоб",
         },
         "uz": {
             "subscription": "💎 Obuna",
             "language": "🌐 Til",
             "level": "📊 Daraja",
-            "course": "📚 Kurs",
             "qa": "💬 Savol-javob",
         },
         "ru": {
             "subscription": "💎 Подписка",
             "language": "🌐 Язык",
             "level": "📊 Уровень",
-            "course": "📚 Курс",
             "qa": "💬 Вопрос-ответ",
         },
     }
@@ -247,9 +256,6 @@ def profile_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text=l["level"], callback_data="profile_menu:level"),
-                InlineKeyboardButton(text=l["course"], callback_data="profile_menu:course"),
-            ],
-            [
                 InlineKeyboardButton(text=l["qa"], callback_data="profile_menu:qa"),
             ],
         ]
@@ -382,7 +388,7 @@ async def command_level_callback_handler(callback: CallbackQuery, session):
     except Exception:
         pass
 
-    level_label = level.upper() if level.startswith("hsk") else level
+    level_label = _level_label(level)
 
     if lang == "tj":
         msg = f"✅ Дараҷа нав шуд: {level_label}"
@@ -568,6 +574,11 @@ async def profile_menu_course(callback: CallbackQuery, state: FSMContext, sessio
     from app.bot.handlers.course import run_course_entry_flow
     await state.update_data(pending_voice_transcript=None, pending_voice_message_id=None)
     await callback.answer()
+    if not COURSE_MODE_ENABLED:
+        user = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
+        lang = user.language if user and user.language else "ru"
+        await callback.message.answer(t("course_disabled_text", lang))
+        return
     await run_course_entry_flow(
         session=session,
         telegram_id=callback.from_user.id,

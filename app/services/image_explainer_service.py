@@ -1,7 +1,7 @@
 from app.services.ai_service import AIService
 
 EXPLAINER_PROMPT = """
-You are a Chinese language tutor in a Telegram bot.
+You are a German language tutor in a Telegram bot.
 
 Your task:
 Explain the analyzed text clearly and help the user learn.
@@ -34,8 +34,7 @@ IF there is text:
 
 For each line use this format:
 
-Chinese
-pinyin
+German
 translation
 
 (blank line)
@@ -53,7 +52,6 @@ If there are NEW or IMPORTANT words:
 Show them like:
 
 Word
-pinyin
 translation
 
 Example 1

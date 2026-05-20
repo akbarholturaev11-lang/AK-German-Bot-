@@ -43,6 +43,7 @@ from app.bot.keyboards.main_menu import main_menu_keyboard, course_menu_keyboard
 from app.bot.keyboards.referral import photo_limit_subscription_keyboard
 from app.bot.keyboards.referral import referral_daily_limit_keyboard
 from app.bot.keyboards.mode import course_promo_keyboard
+from app.config import COURSE_MODE_ENABLED
 from app.bot.keyboards.subscription import payment_method_keyboard
 from app.bot.utils.course_formatter import format_intro, format_step
 from app.repositories.message_repo import MessageRepository
@@ -589,6 +590,11 @@ async def handle_voice_message(message: Message, state: FSMContext, session):
     )
     await session.commit()
 
+    if user.learning_mode == "course" and not COURSE_MODE_ENABLED:
+        user.learning_mode = "qa"
+        user.voice_mode = VOICE_MODE_NONE
+        await session.commit()
+
     if user.learning_mode == "course":
         await _process_course_voice_transcript(
             message=message,
@@ -712,6 +718,17 @@ async def handle_text_message(message: Message, state: FSMContext, session):
     user_lang = user.language if user and user.language else "ru"
 
     if message.text and message.text.startswith("/"):
+        return
+
+    if user and not COURSE_MODE_ENABLED and user.learning_mode == "course":
+        user.learning_mode = "qa"
+        user.voice_mode = VOICE_MODE_NONE
+        await state.update_data(pending_voice_transcript=None, pending_voice_message_id=None)
+        await session.commit()
+        await message.answer(
+            t("course_disabled_text", user_lang),
+            reply_markup=main_menu_keyboard(user_lang),
+        )
         return
 
     if user and user.selected_plan_type and user.payment_status != "approved":
@@ -1119,7 +1136,8 @@ async def handle_text_message(message: Message, state: FSMContext, session):
     # Show course promo after 3rd QA message (once per user)
     refreshed_user = await user_repo.get_by_telegram_id(message.from_user.id)
     if (
-        refreshed_user
+        COURSE_MODE_ENABLED
+        and refreshed_user
         and not refreshed_user.course_promo_sent
         and refreshed_user.questions_used >= 3
         and refreshed_user.learning_mode == "qa"
@@ -1146,6 +1164,12 @@ async def handle_text_message(message: Message, state: FSMContext, session):
 async def handle_course_promo_start(callback: CallbackQuery, state: FSMContext, session):
     await state.update_data(pending_voice_transcript=None, pending_voice_message_id=None)
     await callback.answer()
+    if not COURSE_MODE_ENABLED:
+        user = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
+        lang = user.language if user and user.language else "ru"
+        await callback.message.answer(t("course_disabled_text", lang))
+        return
+
     await run_course_entry_flow(
         session=session,
         telegram_id=callback.from_user.id,
