@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from app.services.onboarding_service import OnboardingService
 from app.bot.utils.i18n import t
 from app.bot.keyboards.onboarding import language_keyboard, level_keyboard
+from app.bot.keyboards.main_menu import main_menu_keyboard
 from app.bot.fsm.onboarding import OnboardingStates
 
 
@@ -37,12 +38,18 @@ async def cmd_start(
 
     if not created and user.language and user.level:
         await message.answer(
-            t("welcome_back", user.language, name=first_name)
+            t("welcome_back", user.language, name=first_name),
+            reply_markup=main_menu_keyboard(user.language),
         )
         return
 
+    await message.answer(
+        t("welcome", user.language, name=first_name),
+        reply_markup=main_menu_keyboard(user.language),
+    )
+
     onboarding_msg = await message.answer(
-        f"{t('welcome', user.language, name=first_name)}\n\n{t('choose_language', user.language)}",
+        t("choose_language", user.language),
         reply_markup=language_keyboard(),
     )
 
@@ -304,6 +311,7 @@ async def process_level(callback: CallbackQuery, state: FSMContext, session):
         await callback.bot.send_message(
             chat_id=callback.from_user.id,
             text=display_text,
+            reply_markup=main_menu_keyboard(user.language),
             parse_mode="HTML",
         )
 
